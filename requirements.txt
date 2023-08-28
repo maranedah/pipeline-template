@@ -1,0 +1,2 @@
+-e src/components/ingestor
+-e src/components/preprocess
