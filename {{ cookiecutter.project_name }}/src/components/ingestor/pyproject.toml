@@ -3,7 +3,7 @@ requires = ["setuptools>=67.0", "setuptools_scm[toml]>=7.1"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "example_package"
+name = "ingestor"
 version = "0.0.1"
 authors = []
 description = "A small example package"
