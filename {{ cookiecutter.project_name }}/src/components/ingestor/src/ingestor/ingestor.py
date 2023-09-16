@@ -1,6 +1,7 @@
 
 import pandas as pd
 import numpy as np
+from .schemas import MyDataFrameSchema
 
 def run_ingestor(gcs_bucket: str) -> list[pd.DataFrame]:
     data = {
@@ -10,6 +11,10 @@ def run_ingestor(gcs_bucket: str) -> list[pd.DataFrame]:
     }
 
     df = pd.DataFrame(data)
+    MyDataFrameSchema.validate(df)
     return (
         df
     )
+
+if __name__ ==  "__main__":
+    run_ingestor("asd")

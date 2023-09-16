@@ -1,7 +1,8 @@
 import pandera as pa
-from pandas import Series
+from pandera.typing import Index, DataFrame, Series
 
-class MyDataFrameSchema(pa.SchemaModel):
+
+class MyDataFrameSchema(pa.DataFrameModel):
     A: Series[int] = pa.Field(
         ge=1,
         le=100
