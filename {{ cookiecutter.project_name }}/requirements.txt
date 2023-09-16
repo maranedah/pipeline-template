@@ -1,5 +1,5 @@
-pandera==0.16.1
-pandas==2.1.0
+kfp==2.2.0
+
 -e src/components/ingestor
 -e src/components/preprocess
 -e src/components/model

@@ -27,5 +27,3 @@ repos:
       - id: check-json
       - id: check-yaml
       - id: check-toml
-
-exclude: "notebooks/*"
