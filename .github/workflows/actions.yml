@@ -24,7 +24,7 @@ jobs:
         uses: google-github-actions/setup-gcloud@v0.2
         with:
           version: 'latest'  # You can specify a specific version if needed
-          project_id: YOUR_PROJECT_ID
+          project_id: ml-projects-399119
 
       - name: Authenticate with gcloud
         run: |
