@@ -17,8 +17,8 @@ jobs:
         uses: hashicorp/setup-terraform@v1
 
       - name: Initialize Terraform
-        run: terraform -chdir=terraform init
+        run: terraform -chdir=\{\{\ cookiecutter.project_name\ \}\}/terraform/ init
 
       - name: Apply Terraform Changes
         run: |
-          terraform -chdir=terraform apply -auto-approve
+          terraform -chdir=\{\{\ cookiecutter.project_name\ \}\}/terraform/ apply -auto-approve
