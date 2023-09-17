@@ -23,7 +23,7 @@ jobs:
       - name: Set up gcloud CLI
         uses: google-github-actions/setup-gcloud@v0.2
         with:
-          version: 'latest'  # You can specify a specific version if needed
+          version: 'latest'  # You can specify a specific version if neededa
           project_id: ml-projects-399119
 
       - name: Authenticate with gcloud
