@@ -1,7 +1,4 @@
-variable "secrets" {}
-
 provider "google" {
-  credentials = var.secrets
   project = "ml-projects-399119"
 }
 

@@ -11,7 +11,7 @@ jobs:
     runs-on: ubuntu-latest
 
     env:
-      GOOGLE_APPLICATION_CREDENTIALS: ${{ secrets.GCP_SA_KEY }}
+      TF_VAR_secrets: ${{ secrets.GCP_SA_KEY }}
 
     steps:
       - name: Checkout code
@@ -25,4 +25,4 @@ jobs:
 
       - name: Apply Terraform Changes
         run: |
-          terraform -chdir=\{\{\ cookiecutter.project_name\ \}\}/terraform/ apply -auto-approve
+          terraform -chdir=\{\{\ cookiecutter.project_name\ \}\}/terraform/ apply
