@@ -1,5 +1,7 @@
+variable "secrets" {}
+
 provider "google" {
-  credentials = file("~/.secrets/gcp_credentials.json")
+  credentials = var.secrets
   project = "ml-projects-399119"
 }
 
