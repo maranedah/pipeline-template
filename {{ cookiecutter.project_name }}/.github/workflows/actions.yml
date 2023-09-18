@@ -19,7 +19,7 @@ jobs:
       name: 'Authenticate to Google Cloud'
       uses: 'google-github-actions/auth@v1'
       with:
-        credentials_json: '${{ secrets.GCP_SA_KEYS }}'
+        credentials_json: '${{ secrets.GCP_SA_KEY }}'
 
     - name: Set up Python
       uses: actions/setup-python@v2
