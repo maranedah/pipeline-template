@@ -1,10 +1,12 @@
+from typing import Tuple
+
 import numpy as np
 import pandas as pd
 
 from .schemas import MyDataFrameSchema
 
 
-def run_ingestor(gcs_bucket: str) -> list[pd.DataFrame]:
+def run_ingestor(gcs_bucket: str) -> Tuple[pd.DataFrame]:
     data = {
         "A": np.random.randint(1, 100, 10),  # 10 random integers between 1 and 100
         "B": np.random.rand(10),  # 10 random float numbers between 0 and 1
@@ -13,8 +15,13 @@ def run_ingestor(gcs_bucket: str) -> list[pd.DataFrame]:
 
     df = pd.DataFrame(data)
     MyDataFrameSchema.validate(df)
+
+    df.to_parquet(f"gs://{gcs_bucket}/example.gzip")
+
+    print(df)
     return df
 
 
 if __name__ == "__main__":
-    run_ingestor("asd")
+    gcs_bucket = "ml-projects-dev-bucket"
+    run_ingestor(gcs_bucket)
