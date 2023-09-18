@@ -1,6 +1,11 @@
 kfp==2.2.0
 
--e src/components/ingestor
--e src/components/preprocess
--e src/components/model
--e src/components/postprocess
+-r ./src/components/ingestor/requirements.txt
+-r ./src/components/preprocess/requirements.txt
+-r ./src/components/model/requirements.txt
+-r ./src/components/postprocess/requirements.txt
+
+-e ./src/components/ingestor
+-e ./src/components/preprocess
+-e ./src/components/model
+-e ./src/components/postprocess

@@ -1,5 +1,4 @@
 provider "google" {
-  credentials = file("~/.secrets/gcp_credentials.json")
   project = "ml-projects-399119"
 }
 
