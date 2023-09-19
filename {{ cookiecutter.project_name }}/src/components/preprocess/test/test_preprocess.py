@@ -1,6 +1,6 @@
 import unittest
 
-import ingestor
+import preprocess
 
 
 class TestIngestor(unittest.TestCase):
@@ -8,5 +8,5 @@ class TestIngestor(unittest.TestCase):
         self.gcs_bucket = "ml-projects-dev-bucket"
 
     def test_run_ingestor(self):
-        (df) = ingestor.run_ingestor(self.gcs_bucket)
+        df = preprocess.run_preprocess(self.gcs_bucket)
         assert df.shape[0] > 0
