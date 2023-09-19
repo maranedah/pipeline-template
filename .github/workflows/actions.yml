@@ -35,5 +35,5 @@ jobs:
 
     - name: Run Pytest
       run: |
-        pytest --cov=src/components/ingestor  --cov-fail-under=80
-        pytest --cov=src/components/preprocess  --cov-fail-under=80
+        pytest --cov=\{\{\ cookiecutter.project_name\ \}\}/src/components/ingestor  --cov-fail-under=80
+        pytest --cov=\{\{\ cookiecutter.project_name\ \}\}/src/components/preprocess  --cov-fail-under=80
