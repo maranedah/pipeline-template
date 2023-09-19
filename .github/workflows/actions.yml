@@ -34,4 +34,6 @@ jobs:
         pip install -r requirements.txt
 
     - name: Run Pytest
-      run: pytest
+      run: |
+        pytest --cov=\{\{\ cookiecutter.project_name\ \}\}/src/components/ingestor  --cov-fail-under=80
+        pytest --cov=\{\{\ cookiecutter.project_name\ \}\}/src/components/preprocess  --cov-fail-under=80
