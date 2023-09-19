@@ -34,4 +34,4 @@ jobs:
         pip install -r requirements.txt
 
     - name: Run Pytest
-      run: pytest
+      run: pytest --cov=ingestor --cov-fail-under=80
