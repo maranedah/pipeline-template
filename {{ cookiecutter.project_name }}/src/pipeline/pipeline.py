@@ -15,6 +15,8 @@ from google_cloud_pipeline_components.v1.vertex_notification_email import (
     VertexNotificationEmailOp,
 )
 from kfp import compiler
+
+# SCHEDULE_DISPLAY_NAME,
 from kfp.dsl import (
     Artifact,
     Dataset,

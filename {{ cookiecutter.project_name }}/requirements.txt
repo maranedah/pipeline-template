@@ -2,4 +2,4 @@
 #-e src/components/preprocess
 #-e src/components/model
 #-e src/components/postprocess
-#-r src/pipelines/requirements.txt
+-r src/pipelines/requirements.txt
