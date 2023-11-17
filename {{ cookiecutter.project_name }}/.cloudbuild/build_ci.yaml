@@ -1,0 +1,43 @@
+timeout: 1800s
+options:
+  pool:
+    name: "projects/$PROJECT_ID/locations/us-central1/workerPools/shareVPC-cloudBuild"
+  logging: CLOUD_LOGGING_ONLY
+  dynamic_substitutions: True
+  env:
+    - "BRANCH_NAME=$BRANCH_NAME"
+    - "COMMIT_SHA=$COMMIT_SHA"
+    - "TAG_NAME=TAG_NAME"
+substitutions:
+  _CONTAINER_REGISTRY: "us-central1-docker.pkg.dev"
+  _RELEASE: "latest"
+  _TEAM_NAME: "team"
+  _PROJECT_NAME: "team-forecasting"
+tags: ["team-forecasting"]
+
+steps:
+  - id: "pull-image"
+    name: "gcr.io/cloud-builders/docker"
+    args:
+      [
+        "pull",
+        "$_CONTAINER_REGISTRY/$PROJECT_ID/$_TEAM_NAME/$_PROJECT_NAME/ci:$_RELEASE"
+      ]
+  - id: "build-image"
+    name: "gcr.io/cloud-builders/docker"
+    args:
+      [
+        "build",
+        "--network", "cloudbuild",
+        "-t", "$_CONTAINER_REGISTRY/$PROJECT_ID/$_TEAM_NAME/$_PROJECT_NAME/ci:$_RELEASE",
+        "--cache-from", "$_CONTAINER_REGISTRY/$PROJECT_ID/$_TEAM_NAME/$_PROJECT_NAME/ci:$_RELEASE",
+        "."
+      ]
+    waitFor: ["pull-image"]
+
+  - id: "push-image"
+    name: "gcr.io/cloud-builders/docker"
+    args:
+      [
+        "push", "$_CONTAINER_REGISTRY/$PROJECT_ID/$_TEAM_NAME/$_PROJECT_NAME/ci:$_RELEASE"
+      ]
