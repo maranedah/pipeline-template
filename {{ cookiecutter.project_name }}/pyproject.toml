@@ -19,6 +19,8 @@ select = [
   "T10",
   # flake8-gettext
   "INT",
+  # isort
+  "I",
   # pylint
   "PL",
   # misc lints

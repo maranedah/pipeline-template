@@ -19,14 +19,14 @@ def get_schema_sample(schema, size):
     for arg, value in defaults.items():
         type = value["type"]
         checks = value["checks"]
-        if issubclass(type, np.integer):
+        if issubclass(type, np.integer) or issubclass(type, int):
             value = rng.integers(
                 low=checks["min_value"],
                 high=checks["max_value"],
                 size=size,
                 dtype=type,
             )
-        elif issubclass(type, np.floating):
+        elif issubclass(type, np.floating) or issubclass(type, float):
             value = rng.uniform(
                 low=checks["min_value"],
                 high=checks["max_value"],

@@ -19,7 +19,6 @@ def run_ingestor(project_id: str, gcs_bucket: str) -> list[pd.DataFrame]:
         data_source.get_data()
         data_source.validate_schema()
         data_source.save_data(gcs_bucket)
-
     return my_data.df
 
 if __name__ == "__main__":
