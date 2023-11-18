@@ -7,10 +7,11 @@ def get_pandera_defaults(schema):
     annotation_default = schema._collect_fields()
     for arg_name, arg_value in annotation_default.items():
         annotation_info, field_info = arg_value
-        checks_dict.update({arg_name: {"type": annotation_info.arg, "checks":{}}})
+        checks_dict.update({arg_name: {"type": annotation_info.arg, "checks": {}}})
         for check in field_info.checks:
             checks_dict[arg_name]["checks"].update(check._check_kwargs)
     return checks_dict
+
 
 def get_schema_sample(schema, size):
     defaults = get_pandera_defaults(schema)

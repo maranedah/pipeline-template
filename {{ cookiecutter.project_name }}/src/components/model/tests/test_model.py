@@ -1,19 +1,20 @@
 import unittest
 
-from preprocess import run_preprocess
+from model import run_model
 
 
 class TestPreprocess(unittest.TestCase):
     def setUp(self):
         self.project_id = "ml-projects-399119"
-        self.palmer_penguins_uri = "gs://pipeline-template-dev/palmer_penguins.gzip"
         self.preprocessed_dataset_uri = "gs://pipeline-template-dev/preprocessed.gzip"
+        self.predictions_uri = "gs://pipeline-template-dev/predictions.gzip"
+        self.model_uri = ""
+        self.metrics_uri = ""
 
     def test_run_preprocess(self):
-        (df, encoders) = run_preprocess(
+        (df, model, metrics) = run_model(
             self.project_id,
-            self.palmer_penguins_uri,
+            self.preprocessed_dataset_uri,
         )
-        df.to_parquet(self.preprocessed_dataset_uri)
+        df.to_parquet(self.predictions_uri)
         assert df.shape[0] > 0
-        assert encoders is not None

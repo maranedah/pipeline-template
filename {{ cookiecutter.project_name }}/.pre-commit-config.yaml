@@ -1,4 +1,12 @@
+fail_fast: true
+
 repos:
+  - repo: https://github.com/psf/black
+    rev: 23.9.1
+    hooks:
+    - id: black
+      language_version: python3.10
+
   - repo: https://github.com/astral-sh/ruff-pre-commit
     rev: v0.0.272
     hooks:
@@ -16,8 +24,6 @@ repos:
       - id: pretty-format-json
         args: [--autofix, --no-sort-keys]
       - id: detect-private-key
-      - id: trailing-whitespace
-      - id: end-of-file-fixer
       - id: check-json
       - id: check-yaml
       - id: check-toml

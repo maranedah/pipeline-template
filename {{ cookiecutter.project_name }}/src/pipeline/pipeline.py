@@ -2,16 +2,32 @@ import argparse
 from datetime import datetime
 from typing import List
 
-from constants import (COMPILED_PIPELINE_PATH, INGESTOR_DOCKER_IMAGE,
-                       MODEL_DOCKER_IMAGE, PIPELINE_NAME,
-                       PREPROCESSING_DOCKER_IMAGE, PROJECT_ID)
+from constants import (
+    COMPILED_PIPELINE_PATH,
+    INGESTOR_DOCKER_IMAGE,
+    MODEL_DOCKER_IMAGE,
+    PIPELINE_NAME,
+    PREPROCESSING_DOCKER_IMAGE,
+    PROJECT_ID,
+)
 from google.cloud import aiplatform
-from google_cloud_pipeline_components.v1.vertex_notification_email import \
-    VertexNotificationEmailOp
+from google_cloud_pipeline_components.v1.vertex_notification_email import (
+    VertexNotificationEmailOp,
+)
 from kfp import compiler
+
 # SCHEDULE_DISPLAY_NAME,
-from kfp.dsl import (Artifact, Dataset, ExitHandler, Input, Metrics, Model,
-                     Output, component, pipeline)
+from kfp.dsl import (
+    Artifact,
+    Dataset,
+    ExitHandler,
+    Input,
+    Metrics,
+    Model,
+    Output,
+    component,
+    pipeline,
+)
 
 
 @component(base_image=INGESTOR_DOCKER_IMAGE)
