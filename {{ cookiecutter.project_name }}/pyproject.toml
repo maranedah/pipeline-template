@@ -46,7 +46,7 @@ select = [
   # flynt
   "FLY",
   # flake8-logging-format
-  "G",
+  # "G",
   # useless statement
   "B018",
 ]

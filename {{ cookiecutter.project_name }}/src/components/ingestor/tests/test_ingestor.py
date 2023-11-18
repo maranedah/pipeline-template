@@ -5,8 +5,9 @@ from ingestor import run_ingestor
 
 class TestIngestor(unittest.TestCase):
     def setUp(self):
-        self.project_id = None
-        self.gcs_bucket = None
+        self.project_id = ""
+        self.gcs_bucket = ""
+
 
     def test_run_ingestor(self):
         (df) = run_ingestor(

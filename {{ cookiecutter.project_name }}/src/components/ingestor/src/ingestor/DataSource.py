@@ -17,8 +17,8 @@ class DataSource:
         read_function: callable,
         read_params: dict[str, any],
         schema: pa.DataFrameModel,
-        columns: list[str] = None,
-        cast_columns: dict[str, callable] = None,
+        columns: list[str] | None = None,
+        cast_columns: dict[str, callable] | None = None,
     ):
         self.name = name
         self.read_function = read_function

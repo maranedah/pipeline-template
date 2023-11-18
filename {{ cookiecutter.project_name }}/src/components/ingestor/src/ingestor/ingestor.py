@@ -1,14 +1,15 @@
 import pandas as pd
 
 from .DataSource import DataSource
+from .pandera_sampler import get_schema_sample
 from .schemas import MyDataFrameSchema
 
 
 def run_ingestor(project_id: str, gcs_bucket: str) -> list[pd.DataFrame]:
     my_data = DataSource(
         name="dummy",
-        read_function=MyDataFrameSchema.example,
-        read_params={"size": 100},
+        read_function=get_schema_sample,
+        read_params={"schema": MyDataFrameSchema, "size": 100},
         schema=MyDataFrameSchema,
     )
 
@@ -20,3 +21,6 @@ def run_ingestor(project_id: str, gcs_bucket: str) -> list[pd.DataFrame]:
         data_source.save_data(gcs_bucket)
 
     return my_data.df
+
+if __name__ == "__main__":
+    run_ingestor(None, None)

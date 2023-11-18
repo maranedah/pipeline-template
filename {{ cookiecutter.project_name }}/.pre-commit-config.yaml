@@ -23,4 +23,20 @@ repos:
       - id: check-yaml
       - id: check-toml
 
+  - repo: https://github.com/PyCQA/isort
+    rev: 5.12.0
+    hooks:
+      - id: isort
+
+  - repo: local
+    hooks:
+      - id: pytest-check
+        name: pytest-check
+        stages: [commit]
+        types: [python]
+        entry: pytest --cov-fail-under=80
+        language: system
+        pass_filenames: false
+        always_run: true
+
 # exclude: "notebooks/*"
