@@ -1,4 +1,4 @@
-<p>The Vertex AI Pipeline Job ended with status: {{status}} </p>
+<p>The Vertex AI Pipeline Job ended with status: {{_status}} </p>
 
 <p>You can see the pipeline execution <a href="https://console.cloud.google.com/vertex-ai/locations/us-central1/pipelines/runs/{{job_id}}?project={{project_id}}">here</a> </p>
 
