@@ -1,5 +1,4 @@
-pandera==0.16.1
-pandas==2.1.0
-pandas-gbq==0.19.2
+pandera==0.18.0
+pandas==2.1.4
+pandas-gbq==0.20.0
 palmerpenguins==0.1.4
-pandera_sampler==0.0.3
