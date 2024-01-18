@@ -1,4 +1,4 @@
-kfp==2.6.0
+kfp==2.4.0
 google-cloud-aiplatform==1.39.0
 google-cloud-pipeline-components==2.8.0
 joblib==1.3.2
