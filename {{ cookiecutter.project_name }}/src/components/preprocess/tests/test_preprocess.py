@@ -5,9 +5,13 @@ from preprocess import run_preprocess
 
 class TestPreprocess(unittest.TestCase):
     def setUp(self):
-        self.project_id = "ml-projects-399119"
-        self.palmer_penguins_uri = "gs://pipeline-template-dev/palmer_penguins.gzip"
-        self.preprocessed_dataset_uri = "gs://pipeline-template-dev/preprocessed.gzip"
+        self.project_id = "{{ cookiecutter.project_id }}"
+        self.palmer_penguins_uri = (
+            "gs://{{ cookiecutter.project_name }}-test/palmer_penguins.gzip"
+        )
+        self.preprocessed_dataset_uri = (
+            "gs://{{ cookiecutter.project_name }}-test/preprocessed.gzip"
+        )
 
     def test_run_preprocess(self):
         (df, encoders) = run_preprocess(

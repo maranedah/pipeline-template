@@ -34,7 +34,7 @@ select = [
   # tidy imports
   "TID",
   # implicit string concatenation
-  "ISC",
+  #"ISC",
   # type-checking imports
   "TCH",
   # comprehensions
