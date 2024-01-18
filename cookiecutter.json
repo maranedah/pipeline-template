@@ -3,5 +3,6 @@
   "author_name": "Your Name",
   "email": "youremail@example.com",
   "project_id": "ml-projects-399119",
-  "gcs_bucket": "gs://pipeline-template"
+  "gcs_bucket": "gs://pipeline-template",
+  "status": false
 }
