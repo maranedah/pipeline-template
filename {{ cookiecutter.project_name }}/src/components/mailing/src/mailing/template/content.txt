@@ -1,13 +1,13 @@
-<p>The Vertex AI Pipeline Job ended with status: {{ '{{ status }}' }} </p>
+<p>The Vertex AI Pipeline Job ended with status: {{'{{status}}'}} </p>
 
-<p>You can see the pipeline execution <a href="https://console.cloud.google.com/vertex-ai/locations/us-central1/pipelines/runs/{{job_id}}?project={{project_id}}">here</a> </p>
+<p>You can see the pipeline execution <a href="https://console.cloud.google.com/vertex-ai/locations/us-central1/pipelines/runs/{{'{{job_id}}'}}?project={{'{{project_id}}'}}">here</a> </p>
 
 
 <p> Additional details:</p>
 <ul>
-<li>Project: {{project_id}}</li>
-<li>Pipeline Job ID: {{job_id}}</li>
+<li>Project: {{'{{project_id}}'}}</li>
+<li>Pipeline Job ID: {{ '{{job_id}}' }}</li>
 
-<li>Start time: {{start_time}}</li>
-<li>Elapsed time: {{elapsed_time}}</li>
+<li>Start time: {{'{{start_time}}'}}</li>
+<li>Elapsed time: {{'{{elapsed_time}}'}}</li>
 </ul>
