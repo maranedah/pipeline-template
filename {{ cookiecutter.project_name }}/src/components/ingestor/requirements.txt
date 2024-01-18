@@ -1,5 +1,5 @@
-pandera[strategies]==0.16.1
+pandera==0.16.1
 pandas==2.1.0
 pandas-gbq==0.19.2
-
 palmerpenguins==0.1.4
+pandera_sampler==0.0.3

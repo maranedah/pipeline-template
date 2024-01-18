@@ -3,7 +3,7 @@
 _CONTAINER_REGISTRY=us-central1-docker.pkg.dev
 _PROJECT_ID=ml-projects-399119
 _PROJECT_NAME=template
-_IMG_NAME=ingestor
+_IMG_NAME=pipeline
 _RELEASE=latest
 
 # docker build --tag $img_name:$version .

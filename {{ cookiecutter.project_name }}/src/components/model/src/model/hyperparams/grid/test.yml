@@ -1,0 +1,63 @@
+learning_rate:
+  type: float
+  params:
+    name: learning_rate
+    low: 1.e-6
+    high: 1.e-3
+
+max_depth:
+  type: int
+  params:
+    name: max_depth
+    low: 1
+    high: 10
+
+n_estimators:
+  type: int 
+  params: 
+    name: n_estimators
+    low: 100
+    high: 1000
+
+num_leaves:
+  type: int
+  params:
+    name: num_leaves
+    low: 1
+    high: 16
+
+objective:
+  type: categorical
+  params:
+    name: objective
+    choices: ["gamma"]
+
+reg_alpha:
+  type: float
+  params:
+    name: reg_alpha
+    low: 1.e-5
+    high: 100
+
+reg_lambda: 
+  type: float
+  params:
+    name: reg_lambda
+    low: 1.e-5
+    high: 100
+
+subsample:
+  type: float
+  params:
+    name: subsample
+    low: 0.85
+    high: 1
+
+subsample_freq:
+  type: int
+  params:
+    name: subsample_freq
+    low: 0
+    high: 5
+
+  

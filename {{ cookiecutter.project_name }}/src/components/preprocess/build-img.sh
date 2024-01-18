@@ -1,9 +1,11 @@
 #!/bin/bash
 
-project_name=example-project
-base_tag=us.gcr.io/$project_id/$project_name
-img_name=preprocess
-version=latest
+_CONTAINER_REGISTRY=us-central1-docker.pkg.dev
+_PROJECT_ID=ml-projects-399119
+_PROJECT_NAME=template
+_IMG_NAME=preprocess
+_RELEASE=latest
 
-docker build -t $base_tag/$img_name:$version
-docker push $base_tag/$img_name:$version
+# docker build --tag $img_name:$version .
+docker build --tag $_CONTAINER_REGISTRY/$_PROJECT_ID/$_PROJECT_NAME/$_IMG_NAME:$_RELEASE .
+docker push $_CONTAINER_REGISTRY/$_PROJECT_ID/$_PROJECT_NAME/$_IMG_NAME:$_RELEASE

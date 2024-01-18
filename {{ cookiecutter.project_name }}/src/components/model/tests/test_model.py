@@ -1,9 +1,11 @@
 import unittest
+from unittest.mock import patch
 
 from model import run_model
+from test_utils import SklearnModelMock
 
 
-class TestPreprocess(unittest.TestCase):
+class TestModel(unittest.TestCase):
     def setUp(self):
         self.project_id = "ml-projects-399119"
         self.preprocessed_dataset_uri = "gs://pipeline-template-dev/preprocessed.gzip"
@@ -11,7 +13,8 @@ class TestPreprocess(unittest.TestCase):
         self.model_uri = ""
         self.metrics_uri = ""
 
-    def test_run_preprocess(self):
+    @patch.object("lightgbm.LGBMRegressor", SklearnModelMock)
+    def test_run_model(self):
         (df, model, metrics) = run_model(
             self.project_id,
             self.preprocessed_dataset_uri,
