@@ -1,0 +1,246 @@
+timeout: 1800s
+options:
+  pool:
+    name: "projects/$PROJECT_ID/locations/us-central1/workerPools/shareVPC-cloudBuild"
+  logging: CLOUD_LOGGING_ONLY
+  dynamic_substitutions: True
+  env:
+    - "BRANCH_NAME=$BRANCH_NAME"
+    - "COMMIT_SHA=$COMMIT_SHA"
+    - "TAG_NAME=TAG_NAME"
+substitutions:
+  _CONTAINER_REGISTRY: "us-central1-docker.pkg.dev"
+  _RELEASE: "latest"
+  _TEAM_NAME: "team"
+  _PROJECT_NAME: "team-forecasting"
+  _COMPONENTS_PATH: "./src/components"
+  _PIPELINES_PATH: "./src/pipeline"
+  _ENV: ${_ENV}
+  _EMAIL_NOTIFICATION_LIST: ${_EMAIL_NOTIFICATION_LIST}
+  _EMAIL_SENDER: "mauricio.araneda.h@gmail.com"
+  _METRICS_TO_NOTIFY: "metric1;metric2"
+tags: ["team-task-model"]
+
+steps:
+  # -------------------- INGESTOR --------------------
+  # ##################################################
+  - id: "pull-ingestor"
+    name: "gcr.io/cloud-builders/docker"
+    args:
+      [
+        "pull",
+        "$_CONTAINER_REGISTRY/$PROJECT_ID/$_TEAM_NAME/$_PROJECT_NAME/ingestor:$_RELEASE"
+      ]
+    allowFailure: true
+
+  - id: "build-ingestor"
+    name: "gcr.io/cloud-builders/docker"
+    args:
+      [
+        "build",
+        "-t", 
+        "$_CONTAINER_REGISTRY/$PROJECT_ID/$_TEAM_NAME/$_PROJECT_NAME/ingestor:$_RELEASE",
+        "--cache-from", 
+        "$_CONTAINER_REGISTRY/$PROJECT_ID/$_TEAM_NAME/$_PROJECT_NAME/ingestor:$_RELEASE",
+        "$_COMPONENTS_PATH/ingestor"
+      ]
+    waitFor: ["pull-ingestor"]
+
+  - id: "push-ingestor"
+    name: "gcr.io/cloud-builders/docker"
+    args:
+      [
+        "push", 
+        "$_CONTAINER_REGISTRY/$PROJECT_ID/$_TEAM_NAME/$_PROJECT_NAME/ingestor:$_RELEASE"
+      ]
+    waitFor: ["build-ingestor"]
+
+  # -------------------- PREPROCESS ------------------
+  # ##################################################
+  - id: "pull-preprocess"
+    name: "gcr.io/cloud-builders/docker"
+    args:
+      [
+        "pull",
+        "$_CONTAINER_REGISTRY/$PROJECT_ID/$_TEAM_NAME/$_PROJECT_NAME/preprocess:$_RELEASE"
+      ]
+    allowFailure: true
+
+  - id: "build-preprocess"
+    name: "gcr.io/cloud-builders/docker"
+    args:
+      [
+        "build",
+        "-t", 
+        "$_CONTAINER_REGISTRY/$PROJECT_ID/$_TEAM_NAME/$_PROJECT_NAME/preprocess:$_RELEASE",
+        "--cache-from", 
+        "$_CONTAINER_REGISTRY/$PROJECT_ID/$_TEAM_NAME/$_PROJECT_NAME/preprocess:$_RELEASE",
+        "$_COMPONENTS_PATH/preprocess"
+      ]
+    waitFor: ["pull-preprocess"]
+
+  - id: "push-preprocess"
+    name: "gcr.io/cloud-builders/docker"
+    args:
+      [
+        "push", 
+        "$_CONTAINER_REGISTRY/$PROJECT_ID/$_TEAM_NAME/$_PROJECT_NAME/preprocess:$_RELEASE"
+      ]
+    waitFor: ["build-preprocess"]
+
+  # -------------------- MODEL ------------------
+  # ##################################################
+  - id: "pull-model"
+    name: "gcr.io/cloud-builders/docker"
+    args:
+      [
+        "pull",
+        "$_CONTAINER_REGISTRY/$PROJECT_ID/$_TEAM_NAME/$_PROJECT_NAME/model:$_RELEASE"
+      ]
+    allowFailure: true
+
+  - id: "build-model"
+    name: "gcr.io/cloud-builders/docker"
+    args:
+      [
+        "build",
+        "-t", 
+        "$_CONTAINER_REGISTRY/$PROJECT_ID/$_TEAM_NAME/$_PROJECT_NAME/model:$_RELEASE",
+        "--cache-from", 
+        "$_CONTAINER_REGISTRY/$PROJECT_ID/$_TEAM_NAME/$_PROJECT_NAME/model:$_RELEASE",
+        "$_COMPONENTS_PATH/model"
+      ]
+    waitFor: ["pull-model"]
+
+  - id: "push-model"
+    name: "gcr.io/cloud-builders/docker"
+    args:
+      [
+        "push", 
+        "$_CONTAINER_REGISTRY/$PROJECT_ID/$_TEAM_NAME/$_PROJECT_NAME/model:$_RELEASE"
+      ]
+    waitFor: ["build-model"]
+
+  # -------------------- POSTPROCESS -----------------
+  # ##################################################
+  - id: "pull-postprocess"
+    name: "gcr.io/cloud-builders/docker"
+    args:
+      [
+        "pull",
+        "$_CONTAINER_REGISTRY/$PROJECT_ID/$_TEAM_NAME/$_PROJECT_NAME/postprocess:$_RELEASE"
+      ]
+    allowFailure: true
+
+  - id: "build-postprocess"
+    name: "gcr.io/cloud-builders/docker"
+    args:
+      [
+        "build",
+        "-t", 
+        "$_CONTAINER_REGISTRY/$PROJECT_ID/$_TEAM_NAME/$_PROJECT_NAME/postprocess:$_RELEASE",
+        "--cache-from", 
+        "$_CONTAINER_REGISTRY/$PROJECT_ID/$_TEAM_NAME/$_PROJECT_NAME/postprocess:$_RELEASE",
+        "$_COMPONENTS_PATH/postprocess"
+      ]
+    waitFor: ["pull-postprocess"]
+
+  - id: "push-postprocess"
+    name: "gcr.io/cloud-builders/docker"
+    args:
+      [
+        "push", 
+        "$_CONTAINER_REGISTRY/$PROJECT_ID/$_TEAM_NAME/$_PROJECT_NAME/postprocess:$_RELEASE"
+      ]
+    waitFor: ["build-postprocess"]
+
+  # -------------------- MAILING -----------------
+  # ##################################################
+  - id: "pull-mailing"
+    name: "gcr.io/cloud-builders/docker"
+    args:
+      [
+        "pull",
+        "$_CONTAINER_REGISTRY/$PROJECT_ID/$_TEAM_NAME/$_PROJECT_NAME/mailing:$_RELEASE"
+      ]
+    allowFailure: true
+
+  - id: "build-mailing"
+    name: "gcr.io/cloud-builders/docker"
+    args:
+      [
+        "build",
+        "-t", 
+        "$_CONTAINER_REGISTRY/$PROJECT_ID/$_TEAM_NAME/$_PROJECT_NAME/mailing:$_RELEASE",
+        "--cache-from", 
+        "$_CONTAINER_REGISTRY/$PROJECT_ID/$_TEAM_NAME/$_PROJECT_NAME/mailing:$_RELEASE",
+        "$_COMPONENTS_PATH/mailing"
+      ]
+    waitFor: ["pull-mailing"]
+
+  - id: "push-mailing"
+    name: "gcr.io/cloud-builders/docker"
+    args:
+      [
+        "push", 
+        "$_CONTAINER_REGISTRY/$PROJECT_ID/$_TEAM_NAME/$_PROJECT_NAME/mailing:$_RELEASE"
+      ]
+    waitFor: ["build-mailing"]
+
+  # -------------------- PIPELINE -----------------
+  # ##################################################
+
+  - id: "pull-pipeline"
+    name: "gcr.io/cloud-builders/docker"
+    args:
+      [
+        "pull",
+        "$_CONTAINER_REGISTRY/$PROJECT_ID/$_TEAM_NAME/$_PROJECT_NAME/pipeline:$_RELEASE"
+      ]
+    allowFailure: true
+
+  - id: "build-pipeline"
+    name: "gcr.io/cloud-builders/docker"
+    args:
+      [
+        "build",
+        "-t", 
+        "$_CONTAINER_REGISTRY/$PROJECT_ID/$_TEAM_NAME/$_PROJECT_NAME/pipeline:$_RELEASE",
+        "--cache-from", 
+        "$_CONTAINER_REGISTRY/$PROJECT_ID/$_TEAM_NAME/$_PROJECT_NAME/pipeline:$_RELEASE",
+        "$_PIPELINE_PATH"
+      ]
+    waitFor: ["pull-pipeline"]
+
+  - id: "push-pipeline"
+    name: "gcr.io/cloud-builders/docker"
+    args:
+      [
+        "push", 
+        "$_CONTAINER_REGISTRY/$PROJECT_ID/$_TEAM_NAME/$_PROJECT_NAME/pipeline:$_RELEASE"
+      ]
+    waitFor: ["build-pipeline"]
+
+  # -------------------- DEPLOY ----------------------
+  # ##################################################
+
+  - id: "deploy-pipeline"
+    name: "gcr.io/cloud-builders/docker"
+    args:
+      [
+        "run",
+        "--network", "cloudbuild",
+        "$_CONTAINER_REGISTRY/$PROJECT_ID/$_TEAM_NAME/$_PROJECT_NAME/pipeline:$_RELEASE",
+        "--env", $_ENV,
+        "--mode", "schedule",
+      ]
+    waitFor:
+      [
+        "push-ingestor",
+        "push-preprocess",
+        "push-model",
+        "push-postprocess",
+        "push-pipeline",
+        "push-mailing"
+      ]
+    

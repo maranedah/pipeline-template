@@ -1,0 +1,30 @@
+dev:
+  gcs_bucket: 
+  service_account:
+  predictions_output_table: 
+  cron_schedule: "TZ=America/Santiago 0 13 * * 4" # thursday at 1pm
+  tuning_schedule: "TZ=America/Santiago 0 13 * * 4" # thursday at 1pm
+  timeout_in_hours: 0.5
+  email_notification_list: "team-dev@company.com"
+  email_sender: "mail1@gmail.com"
+  email_metrics_to_notify: "metric1;metric2"
+stg:
+  gcs_bucket: 
+  service_account:
+  predictions_output_table: 
+  cron_schedule: "TZ=America/Santiago 0 7 * * 5" # friday at 7am
+  tuning_schedule: "TZ=America/Santiago 0 1 * * 5" # friday at 1am
+  timeout_in_hours: 1
+  email_notification_list: "team-dev@company.com"
+  email_sender: "mail1@gmail.com"
+  email_metrics_to_notify: "metric1;metric2"
+prod:
+  gcs_bucket: 
+  service_account:
+  predictions_output_table: 
+  cron_schedule: "TZ=America/Santiago 0 5 * * 1" # monday at 5am
+  tuning_schedule: "TZ=America/Santiago 0 1 * * 0" # sunday at 1am
+  timeout_in_hours: 24
+  email_notification_list: "team-dev@company.com;usermail1@gmail.com"
+  email_sender: "mail1@gmail.com"
+  email_metrics_to_notify: "metric1;metric2"
