@@ -1,5 +1,5 @@
 dev:
-  gcs_bucket: 
+  gcs_bucket: "{{ cookiecutter.project_name }}-dev"
   service_account:
   predictions_output_table: 
   cron_schedule: "TZ=America/Santiago 0 13 * * 4" # thursday at 1pm
@@ -9,7 +9,7 @@ dev:
   email_sender: "mail1@gmail.com"
   email_metrics_to_notify: "metric1;metric2"
 stg:
-  gcs_bucket: 
+  gcs_bucket: "{{ cookiecutter.project_name }}-stg"
   service_account:
   predictions_output_table: 
   cron_schedule: "TZ=America/Santiago 0 7 * * 5" # friday at 7am
@@ -19,7 +19,7 @@ stg:
   email_sender: "mail1@gmail.com"
   email_metrics_to_notify: "metric1;metric2"
 prod:
-  gcs_bucket: 
+  gcs_bucket: "{{ cookiecutter.project_name }}-prod"
   service_account:
   predictions_output_table: 
   cron_schedule: "TZ=America/Santiago 0 5 * * 1" # monday at 5am
