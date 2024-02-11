@@ -1,0 +1,5 @@
+-e src/components/ingestor
+-e src/components/preprocess
+-e src/components/model
+-e src/components/postprocess
+-r src/pipeline/requirements.txt
