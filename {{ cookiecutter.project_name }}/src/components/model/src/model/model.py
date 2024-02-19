@@ -3,7 +3,7 @@ import pandas as pd
 from lightgbm import LGBMClassifier
 from sklearn.model_selection import train_test_split
 
-from .constants import RANDOM_STATE
+from .constants import EVALUATION_METRICS, RANDOM_STATE
 from .metrics import get_metrics
 
 
@@ -52,8 +52,19 @@ def split_data(
     return (X_train, y_train), (X_val, y_val), (X_test, y_test)
 
 
+def init_model(model: str) -> lgb.LGBMModel | any:
+    models = {
+        "LGBMClassifier": lgb.LGBMClassifier,
+        "LGBMRegressor": lgb.LGBMRegressor,
+    }
+    if isinstance(model, lgb.LGBMModel):
+        model.callbacks = [lgb.early_stopping(stopping_rounds=5)]
+    model = models[model]
+    return model
+
+
 def run_model(
-    project_id: str, preprocessed_dataset_uri: str, split_ratio: str
+    project_id: str, preprocessed_dataset_uri: str, split_ratio: str, model_str: str
 ) -> tuple[LGBMClassifier, dict]:
     """
     Train a LightGBM classifier on a preprocessed dataset and evaluate its performance.
@@ -77,16 +88,20 @@ def run_model(
     """
     df = pd.read_parquet(preprocessed_dataset_uri)
     (X_train, y_train), (X_val, y_val), (X_test, y_test) = split_data(df, split_ratio)
-    model = LGBMClassifier(
-        valid_sets=(X_val, y_val),
-        callbacks=[lgb.early_stopping(stopping_rounds=5)],
-        n_jobs=-1,
-    )
+
+    # Init model from string
+    model = init_model(model_str)
+    model.valid_sets = (X_val, y_val)
+    model.n_jobs = -1
+
+    # Fit and performance testing
     model.fit(
         X_train,
         y_train,
     )
     baseline_model = None
-    metrics = get_metrics(X_train, y_train, X_test, y_test, model, baseline_model)
+    metrics = get_metrics(
+        X_train, y_train, X_test, y_test, model, baseline_model, EVALUATION_METRICS
+    )
 
     return model, metrics

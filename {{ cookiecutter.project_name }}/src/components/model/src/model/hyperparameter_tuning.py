@@ -1,4 +1,4 @@
-import pathlib
+from pathlib import Path
 
 import optuna
 import yaml
@@ -31,7 +31,7 @@ class HyperparameterTuning:
     base_trials: dict
     hyperparams_grid: dict
 
-    def __init__(self, experiment_name: str):
+    def __init__(self, model_str: str):
         """
         Initialize the HyperparameterTuning object.
 
@@ -43,16 +43,41 @@ class HyperparameterTuning:
         self.study = optuna.create_study(
             direction="minimize",
             study_name="",
-            storage=f"sqlite:///{experiment_name}.db",
+            storage=f"sqlite:///{model_str}.db",
             load_if_exists=True,
         )
 
-        hyperparams_path = pathlib.Path(__file__).parent / "hyperparams"
-        base_trials_path = hyperparams_path / "base_trials" / f"{experiment_name}.yml"
-        grid_path = hyperparams_path / "grid" / f"{experiment_name}.yml"
+        hyperparams_path = Path(__file__).parent / "hyperparams" / "experiments.yml"
+        experiments = yaml.safe_load(open(hyperparams_path, "r"))[model_str]
 
-        self.base_trials = yaml.safe_load(open(base_trials_path, "r"))
-        self.grid = yaml.safe_load(open(grid_path, "r"))
+        self.base_trials = experiments["base_trials"]
+
+        # Initializing the grid to match optuna's suggestions
+        self.grid = {}
+        for param, _range in experiments["grid"].items():
+            self.grid[param] = {}
+            # If any elements is string
+            if any(isinstance(v, str) for v in _range):
+                self.grid[param]["type"] = "categorical"
+                self.grid[param]["params"] = {"name": param, "choices": _range}
+            # If all elements are int
+            elif all(isinstance(v, int) for v in _range):
+                self.grid[param]["type"] = "int"
+                self.grid[param]["params"] = {
+                    "name": param,
+                    "low": min(_range),
+                    "high": max(_range),
+                }
+            # If all elements are numeric
+            elif all(isinstance(v, (float, int)) for v in _range):
+                self.grid[param]["type"] = "float"
+                self.grid[param]["params"] = {
+                    "name": param,
+                    "low": min(_range),
+                    "high": max(_range),
+                }
+            else:
+                raise TypeError("YAML suggestion grid has bad formatting")
 
     def suggest_from_hyperparams_grid(
         self, trial: optuna.trial
@@ -155,3 +180,6 @@ class HyperparameterTuning:
             .any()
         )
         return trial_exists
+
+
+HyperparameterTuning("LGBMClassifier")

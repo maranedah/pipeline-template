@@ -1,0 +1,22 @@
+LGBMClassifier:
+  base_trials:
+    default:
+      learning_rate: 0.1
+      max_depth: -1 # <0 means no limit
+      n_estimators: 100
+      num_leaves: 5
+      objective: "gamma"
+      reg_alpha: 0.0
+      reg_lambda: 0.0
+      subsample: 1
+      subsample_freq: 0
+  grid:
+    learning_rate: [1.e-5, 1.e-1]
+    max_depth: [1, 10]
+    n_estimators: [100, 10000]
+    num_leaves: [1, 16]
+    objective: ["gamma"]
+    reg_alpha: [1.e-5, 100]
+    reg_lambda: [1.e-5, 100]
+    subsample: [0.85, 1]
+    subsample_freq: [0, 5]
