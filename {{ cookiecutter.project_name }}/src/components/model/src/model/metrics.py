@@ -1,11 +1,25 @@
+import lightgbm as lgb
 import pandas as pd
 from sklearn.metrics import accuracy_score, f1_score, precision_score, recall_score
 
+
+def f1_score_macro(y_true, y_pred):
+    return f1_score(y_true, y_pred, average="macro")
+
+
+def precision_score_macro(y_true, y_pred):
+    return precision_score(y_true, y_pred, average="macro")
+
+
+def recall_score_macro(y_true, y_pred):
+    return recall_score(y_true, y_pred, average="macro")
+
+
 metrics_functions = {
     "accuracy": accuracy_score,
-    "f1": f1_score,
-    "precision": precision_score,
-    "recall": recall_score,
+    "f1": f1_score_macro,
+    "precision": precision_score_macro,
+    "recall": recall_score_macro,
 }
 
 
@@ -14,7 +28,7 @@ def get_metrics(
     y_train: pd.DataFrame,
     X_test: pd.DataFrame,
     y_test: pd.DataFrame,
-    model: any,
+    model: lgb.LGBMModel,
     baseline_model: any,
     evaluation_metrics: list[str],
 ) -> pd.DataFrame:

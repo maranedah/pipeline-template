@@ -7,10 +7,10 @@ class TestPreprocess(unittest.TestCase):
     def setUp(self):
         self.project_id = "{{ cookiecutter.project_id }}"
         self.palmer_penguins_uri = (
-            "gs://{{ cookiecutter.project_name }}-test/palmer_penguins.gzip"
+            "gs://{{ cookiecutter.project_name }}-bucket-test/palmer_penguins.gzip"
         )
         self.preprocessed_dataset_uri = (
-            "gs://{{ cookiecutter.project_name }}-test/preprocessed.gzip"
+            "gs://{{ cookiecutter.project_name }}-bucket-test/preprocessed.gzip"
         )
 
     def test_run_preprocess(self):

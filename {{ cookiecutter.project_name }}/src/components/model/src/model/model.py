@@ -52,14 +52,14 @@ def split_data(
     return (X_train, y_train), (X_val, y_val), (X_test, y_test)
 
 
-def init_model(model: str) -> lgb.LGBMModel | any:
+def init_model(model: str) -> lgb.LGBMModel:
     models = {
         "LGBMClassifier": lgb.LGBMClassifier,
         "LGBMRegressor": lgb.LGBMRegressor,
     }
     if isinstance(model, lgb.LGBMModel):
         model.callbacks = [lgb.early_stopping(stopping_rounds=5)]
-    model = models[model]
+    model = models[model]()
     return model
 
 
