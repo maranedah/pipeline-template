@@ -10,6 +10,6 @@ resource "google_storage_bucket" "dev_bucket" {
 }
 
 resource "google_storage_bucket" "test_bucket" {
-  name     = "python-project-bucket-test"
+  name     = "{{ cookiecutter.project_name }}-bucket-test"
   location = "US"
 }
