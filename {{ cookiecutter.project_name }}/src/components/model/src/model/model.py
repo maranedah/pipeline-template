@@ -91,10 +91,13 @@ def run_model(
 
     # Init model from string
     model = init_model(model_str)
-    model.valid_sets = (X_val, y_val)
     model.n_jobs = -1
 
     # Fit and performance testing
+    train_data = lgb.Dataset(X_train, label=y_train)
+    valid_data = lgb.Dataset(X_val, label=y_val, reference=train_data)
+
+    model.valid_sets = valid_data
     model.fit(
         X_train,
         y_train,
@@ -103,5 +106,8 @@ def run_model(
     metrics = get_metrics(
         X_train, y_train, X_test, y_test, model, baseline_model, EVALUATION_METRICS
     )
+
+    # if model is the best, replace the endpoint
+    ###
 
     return model, metrics
