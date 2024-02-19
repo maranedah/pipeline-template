@@ -2,6 +2,7 @@ import argparse
 from datetime import datetime
 from typing import List
 
+import yaml
 from constants import (
     COMPILED_PIPELINE_PATH,
     INGESTOR_DOCKER_IMAGE,
@@ -86,12 +87,7 @@ def model(
     from google.cloud import storage
     from model import run_model
 
-    (
-        output_model,
-        output_metrics,
-        output_predictions,
-        output_optuna_experiments_uri,
-    ) = run_model(
+    (output_model, output_metrics) = run_model(
         project_id,
         gcs_bucket_path,
         preprocessed_data.uri,
@@ -104,19 +100,23 @@ def model(
     blob.upload_from_filename(local_path)
     logging.info(f"model saved at: {model.uri}")
 
-    dataframes = [output_predictions]
-    outputs = [predictions]
-
-    for df, output in zip(dataframes, outputs, strict=True):
-        df.to_parquet(output.path)
-        output.metadata["shape"] = df.shape
-
-    logging.info(f"predictions saved at: {predictions.path}")
-
     for key, value in output_metrics.items():
         metrics.log_metric(key, value)
 
     logging.info(f"metrics saved at: {metrics.uri}")
+
+    # Initialize AI Platform client
+    # aiplatform.init(project=project_id, location=location)
+
+    # Create a model resource
+    # model = aiplatform.Model(display_name=model_display_name)
+    # model.upload(model.uri)
+
+    # Deploy the model to an endpoint
+    # endpoint = model.deploy(
+    #    machine_type="n1-standard-4",
+    #    endpoint_display_name="your-endpoint-name"
+    # )
 
 
 @pipeline
@@ -137,23 +137,27 @@ def example_pipeline(
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--mode", choices=["submit", "schedule"], required=True)
-    parser.add_argument("--gcs_bucket_path", required=True)
-    parser.add_argument("--service_account", required=True)
-    parser.add_argument("--email_notification_list", required=True)
-    parser.add_argument("--cron_schedule")
+    parser.add_argument("--env", choices=["dev", "stg", "prod"], required=True)
+    parser.add_argument(
+        "--enable_hyperparameter_tuning", default=False, action="store_true"
+    )
     args = parser.parse_args()
 
-    if args.mode == "schedule" and not args.cron_scheduler:
-        raise ValueError("--cron_schedule is required when using schedule mode")
+    with open("env_config.yaml", "r") as config_file:
+        env_config = yaml.safe_load(config_file)[args.env]
 
     compiler.Compiler().compile(example_pipeline, COMPILED_PIPELINE_PATH)
 
-    email_notification_list = list(filter(None, args.email_notification_list(";")))
+    email_notification_list = list(
+        filter(None, env_config["email_notification_list"](";"))
+    )
 
     params_dict = {
         "project_id": PROJECT_ID,
-        "gcs_bucket_path": args.gcs_bucket_path,
+        "gcs_bucket_path": env_config["gcs_bucket_path"],
         "email_notification_list": email_notification_list,
+        "enable_hyperparameter_tuning": args.enable_hyperparameter_tuning,
+        "timeout_in_hours": env_config["timeout_in_hours"],
     }
 
     current_date = datetime.utcnow().strftime("%Y%m%d-%H%M%S")
@@ -171,8 +175,15 @@ def main():
     if args.mode == "submit":
         pipeline_job.submit(service_account=args.service_account)
     elif args.mode == "schedule":
-        return None
-        # create_or_update_pipeline_schedule()
+        cron_schedule = (
+            env_config["tuning_schedule"]
+            if args.enable_hyperparameter_tuning
+            else env_config["cron_schedule"]
+        )
+        pipeline_job.create_schedule(
+            display_name=f"{PIPELINE_NAME}-{current_date}",
+            cron=cron_schedule,
+        )
 
 
 if __name__ == "__main__":

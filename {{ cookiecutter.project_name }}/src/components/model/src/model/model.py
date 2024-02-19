@@ -1,6 +1,7 @@
 import lightgbm as lgb
 import pandas as pd
 from lightgbm import LGBMClassifier
+from sklearn.linear_model import LogisticRegression
 from sklearn.model_selection import train_test_split
 
 from .constants import EVALUATION_METRICS, RANDOM_STATE
@@ -59,7 +60,7 @@ def init_model(model: str) -> lgb.LGBMModel:
     }
     if isinstance(model, lgb.LGBMModel):
         model.callbacks = [lgb.early_stopping(stopping_rounds=5)]
-    model = models[model]()
+    model = models[model](random_state=RANDOM_STATE)
     return model
 
 
@@ -86,6 +87,7 @@ def run_model(
         A tuple containing the trained LightGBM model
         and a dictionary of evaluation metrics.
     """
+    # Read data
     df = pd.read_parquet(preprocessed_dataset_uri)
     (X_train, y_train), (X_val, y_val), (X_test, y_test) = split_data(df, split_ratio)
 
@@ -94,20 +96,15 @@ def run_model(
     model.n_jobs = -1
 
     # Fit and performance testing
-    train_data = lgb.Dataset(X_train, label=y_train)
-    valid_data = lgb.Dataset(X_val, label=y_val, reference=train_data)
+    model.valid_sets = (X_val, y_val)
+    model.fit(X_train, y_train)
 
-    model.valid_sets = valid_data
-    model.fit(
-        X_train,
-        y_train,
-    )
-    baseline_model = None
+    # Fit baseline model
+    baseline_model = LogisticRegression(multi_class="ovr", random_state=RANDOM_STATE)
+    baseline_model.fit(X_train, y_train)
+
     metrics = get_metrics(
         X_train, y_train, X_test, y_test, model, baseline_model, EVALUATION_METRICS
     )
-
-    # if model is the best, replace the endpoint
-    ###
 
     return model, metrics
