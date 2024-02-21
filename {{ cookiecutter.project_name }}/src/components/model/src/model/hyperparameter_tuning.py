@@ -1,8 +1,11 @@
 from pathlib import Path
 
 import optuna
+import pandas as pd
 import yaml
 from sklearn.model_selection import cross_val_score
+
+from .model import init_model, split_data
 
 
 class HyperparameterTuning:
@@ -106,7 +109,7 @@ class HyperparameterTuning:
         }
         return suggestions
 
-    def objective(self, trial, model, data, cross_validation_splits) -> float:
+    def objective(self, trial, data, cross_validation_splits) -> float:
         """
         Objective function for optimization.
 
@@ -128,7 +131,7 @@ class HyperparameterTuning:
         """
         suggested_params = self.suggest_from_hyperparams_grid(trial)
         score = cross_val_score(
-            estimator=model(**suggested_params),
+            estimator=self.model(**suggested_params),
             X=data.drop(columns="y"),
             y=data["y"],
             scoring="f1_macro",
@@ -182,4 +185,28 @@ class HyperparameterTuning:
         return trial_exists
 
 
-HyperparameterTuning("LGBMClassifier")
+def run_hyperparameter_tuning(
+    gcs_bucket: str,
+    preprocessed_data_uri: str,
+    split_ratio: str,
+    model_str: str,
+    suggestion_trials: int,
+    timeout_in_hours: float,
+):
+    # Read data
+    df = pd.read_parquet(preprocessed_data_uri)
+    (X_train, y_train), (X_val, y_val), (X_test, y_test) = split_data(df, split_ratio)
+    model = init_model(model_str)
+    model.valid_sets = (X_val, y_val)
+    tuning = HyperparameterTuning(model)
+    tuning.run_tuning(X_train, y_train, suggestion_trials, timeout_in_hours)
+
+
+run_hyperparameter_tuning(
+    gcs_bucket=None,
+    preprocessed_data_uri="gs://python-test-bucket-test/preprocessed.gzip",
+    split_ratio="6:2:2",
+    model_str="LGBMClassifier",
+    suggestion_trials=5,
+    timeout_in_hours=0.25,
+)
