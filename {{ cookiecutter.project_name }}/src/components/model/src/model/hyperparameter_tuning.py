@@ -1,11 +1,15 @@
+import logging
+import sys
 from pathlib import Path
 
+import lightgbm as lgb
 import optuna
 import pandas as pd
 import yaml
 from sklearn.model_selection import cross_val_score
 
-from .model import init_model, split_data
+from .constants import MODELS
+from .model import split_data
 
 
 class HyperparameterTuning:
@@ -34,7 +38,7 @@ class HyperparameterTuning:
     base_trials: dict
     hyperparams_grid: dict
 
-    def __init__(self, model_str: str):
+    def __init__(self, model, metrics):
         """
         Initialize the HyperparameterTuning object.
 
@@ -43,15 +47,24 @@ class HyperparameterTuning:
         experiment_name : str
             Name of the experiment for storing the optimization results.
         """
+        self.model = model
+        self.metrics = metrics
+        model_name = type(model()).__name__
+
+        optuna.logging.get_logger("optuna").addHandler(
+            logging.StreamHandler(sys.stdout)
+        )
         self.study = optuna.create_study(
-            direction="minimize",
+            direction="maximize",
             study_name="",
-            storage=f"sqlite:///{model_str}.db",
+            storage=f"sqlite:///{model_name}.db",
             load_if_exists=True,
+            pruner=optuna.pruners.MedianPruner(),
+            sampler=optuna.samplers.TPESampler(multivariate=True),
         )
 
         hyperparams_path = Path(__file__).parent / "hyperparams" / "experiments.yml"
-        experiments = yaml.safe_load(open(hyperparams_path, "r"))[model_str]
+        experiments = yaml.safe_load(open(hyperparams_path, "r"))[model_name]
 
         self.base_trials = experiments["base_trials"]
 
@@ -59,7 +72,7 @@ class HyperparameterTuning:
         self.grid = {}
         for param, _range in experiments["grid"].items():
             self.grid[param] = {}
-            # If any elements is string
+            # If any element is string
             if any(isinstance(v, str) for v in _range):
                 self.grid[param]["type"] = "categorical"
                 self.grid[param]["params"] = {"name": param, "choices": _range}
@@ -105,11 +118,11 @@ class HyperparameterTuning:
         }
         suggestions = {
             k: trial_suggest_functions[v["type"]](**v["params"])
-            for k, v in self.hyperparams_grid.items()
+            for k, v in self.grid.items()
         }
         return suggestions
 
-    def objective(self, trial, data, cross_validation_splits) -> float:
+    def objective(self, trial, X_train, y_train, fit_params, cv_splits) -> float:
         """
         Objective function for optimization.
 
@@ -131,17 +144,24 @@ class HyperparameterTuning:
         """
         suggested_params = self.suggest_from_hyperparams_grid(trial)
         score = cross_val_score(
-            estimator=self.model(**suggested_params),
-            X=data.drop(columns="y"),
-            y=data["y"],
-            scoring="f1_macro",
-            cv=cross_validation_splits,
-            n_jobs=1,
+            estimator=self.model(verbosity=-1, **suggested_params),
+            X=X_train,
+            y=y_train,
+            scoring=self.metrics,
+            fit_params=fit_params,
+            cv=cv_splits,
+            n_jobs=-1,
         ).mean()
         return score
 
     def run_tuning(
-        self, data, cross_validation_splits, suggestion_trials, timeout_in_hours
+        self,
+        X_train,
+        y_train,
+        fit_params,
+        cv_splits,
+        suggestion_trials,
+        timeout_in_hours,
     ):
         """
         Run hyperparameter tuning.
@@ -168,7 +188,9 @@ class HyperparameterTuning:
                 self.study.enqueue_trial(trial)
 
         self.study.optimize(
-            lambda trial: self.objective(trial, data, cross_validation_splits),
+            lambda trial: self.objective(
+                trial, X_train, y_train, fit_params, cv_splits
+            ),
             n_trials=suggestion_trials,
             timeout=int(round(60 * 60 * timeout_in_hours)),
         )
@@ -196,17 +218,26 @@ def run_hyperparameter_tuning(
     # Read data
     df = pd.read_parquet(preprocessed_data_uri)
     (X_train, y_train), (X_val, y_val), (X_test, y_test) = split_data(df, split_ratio)
-    model = init_model(model_str)
-    model.valid_sets = (X_val, y_val)
-    tuning = HyperparameterTuning(model)
-    tuning.run_tuning(X_train, y_train, suggestion_trials, timeout_in_hours)
+    model = MODELS[model_str]
+    cv_splits = 5
+    tuning = HyperparameterTuning(model, metrics="f1_macro")
+    fit_params = {
+        "eval_set": (X_val, y_val),
+        "callbacks": [
+            lgb.early_stopping(stopping_rounds=5),
+            # LightGBMPruningCallback(trial, "multi_logloss")
+        ],
+    }
+    tuning.run_tuning(
+        X_train, y_train, fit_params, cv_splits, suggestion_trials, timeout_in_hours
+    )
 
 
-run_hyperparameter_tuning(
-    gcs_bucket=None,
-    preprocessed_data_uri="gs://python-test-bucket-test/preprocessed.gzip",
-    split_ratio="6:2:2",
-    model_str="LGBMClassifier",
-    suggestion_trials=5,
-    timeout_in_hours=0.25,
-)
+# run_hyperparameter_tuning(
+#    gcs_bucket=None,
+#    preprocessed_data_uri="gs://python-project-bucket-test/preprocessed.gzip",
+#    split_ratio="6:2:2",
+#    model_str="LGBMClassifier",
+#    suggestion_trials=200,
+#    timeout_in_hours=0.25,
+# )

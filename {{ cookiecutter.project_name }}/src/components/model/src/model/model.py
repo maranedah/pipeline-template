@@ -4,7 +4,7 @@ from lightgbm import LGBMClassifier
 from sklearn.linear_model import LogisticRegression
 from sklearn.model_selection import train_test_split
 
-from .constants import EVALUATION_METRICS, RANDOM_STATE
+from .constants import EVALUATION_METRICS, MODELS, RANDOM_STATE
 from .metrics import get_metrics
 
 
@@ -54,13 +54,7 @@ def split_data(
 
 
 def init_model(model: str) -> lgb.LGBMModel:
-    models = {
-        "LGBMClassifier": lgb.LGBMClassifier,
-        "LGBMRegressor": lgb.LGBMRegressor,
-    }
-    if isinstance(model, lgb.LGBMModel):
-        model.callbacks = [lgb.early_stopping(stopping_rounds=5)]
-    model = models[model](random_state=RANDOM_STATE)
+    model = MODELS[model](random_state=RANDOM_STATE)
     return model
 
 
