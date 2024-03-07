@@ -1,12 +1,20 @@
 import logging
 
 import lightgbm as lgb
+import mlflow
 import numpy as np
 import pandas as pd
 import xgboost as xgb
+from catboost import CatBoostRegressor
 from lightgbm import LGBMRegressor
 from model.hyperparameter_tuning import HyperparameterTuning
+from sklearn.ensemble import GradientBoostingRegressor, RandomForestRegressor
+from sklearn.linear_model import ElasticNet, Lasso, LinearRegression, Ridge
 from sklearn.model_selection import KFold, cross_validate
+from sklearn.neighbors import KNeighborsRegressor
+from sklearn.neural_network import MLPRegressor
+from sklearn.svm import SVR
+from sklearn.tree import DecisionTreeRegressor
 from xgboost import XGBRegressor
 
 logging.basicConfig(level=logging.INFO)
@@ -15,19 +23,19 @@ logging.basicConfig(level=logging.INFO)
 class RegressionModels:
     def __init__(self):
         self.models = [
-            # LinearRegression,
-            # Ridge,
-            # Lasso,
-            # ElasticNet,
-            # DecisionTreeRegressor,
-            # RandomForestRegressor,
-            # GradientBoostingRegressor,
-            # SVR,
-            # KNeighborsRegressor,
-            # MLPRegressor,
+            LinearRegression,
+            Ridge,
+            Lasso,
+            ElasticNet,
+            DecisionTreeRegressor,
+            RandomForestRegressor,
+            GradientBoostingRegressor,
+            SVR,
+            KNeighborsRegressor,
+            MLPRegressor,
             XGBRegressor,
             LGBMRegressor,
-            # CatBoostRegressor,
+            CatBoostRegressor,
         ]
         self.metrics = [
             "neg_mean_squared_error",
@@ -61,6 +69,7 @@ class RegressionModels:
             )
             for model in models
         ]
+
         models_performance = [
             {
                 "model_name": type(model).__name__,
@@ -68,12 +77,17 @@ class RegressionModels:
             }
             for model, cv_info in zip(models, cv_models_info)
         ]
+        mlflow.set_experiment("Model Selection - No Tuning")
+
+        for model_performance in models_performance:
+            with mlflow.start_run():
+                for k, v in model_performance.items():
+                    if k == "model_name":
+                        mlflow.log_param("model_name", v)
+                    else:
+                        mlflow.log_metric(k, v)
 
         df = pd.DataFrame(models_performance)
-        df.to_csv("Regression Models Preliminary Results.csv", index=False)
-        logging.info("Models results saved to file")
-        # Probably add a bar plot here
-        ###
 
         # Get top 3 models
         top_3_indexes = df.nlargest(3, f"test_{self.tuning_metric}").index.tolist()
@@ -148,16 +162,19 @@ class RegressionModels:
                 "callbacks": [xgb.callback.EarlyStopping(rounds=5)],
             },
         }
-        return fit_params[model_name]
+        if model_name in fit_params:
+            return fit_params[model_name]
+        else:
+            return {}
 
     def get_init_params(self, model):
         model_name = type(model()).__name__
         init_params = {
             "LGBMRegressor": {"verbosity": -1, "random_state": 42},
             "CatBoostRegressor": {
-                "silent": True,
+                # "silent": True,
                 "random_seed": 42,
-                "eval_metric": "MAPE",
+                # "eval_metric": "MAPE",
             },
             "XGBRegressor": {"verbosity": 0, "random_seed": 42, "verbose_eval": False},
         }

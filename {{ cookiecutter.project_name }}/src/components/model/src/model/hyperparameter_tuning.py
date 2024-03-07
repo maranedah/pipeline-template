@@ -80,7 +80,7 @@ class HyperparameterTuning:
         self.pruning_callbacks = {
             "CatBoostRegressor": {
                 "callback": CatBoostPruningCallback,
-                "params": {"metric": "MAPE"},
+                "params": {"metric": "RMSE"},
             },
             "LGBMRegressor": {
                 "callback": LightGBMPruningCallback,
@@ -204,8 +204,9 @@ class HyperparameterTuning:
             mlflow.log_params(suggested_params)
             mlflow.log_metric(self.metrics, score)
             if len(self.study.trials) > 1:
-                best_value = self.study.best_value
-                best_mape = score if score > best_value else best_value
+                best_mape = (
+                    score if score < self.study.best_value else self.study.best_value
+                )
                 mlflow.log_metric("best_mape", best_mape)
                 mlflow.log_param("time", time() - start)
             else:
