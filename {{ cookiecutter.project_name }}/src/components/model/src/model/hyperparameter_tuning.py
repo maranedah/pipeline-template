@@ -184,11 +184,14 @@ class HyperparameterTuning:
 
             # Run a model and see if we need to prune
             fit_params_with_pruning = deepcopy(fit_params)
-            fit_params_with_pruning["callbacks"].append(
-                self._get_pruning_callback(trial)
-            )
+            pruning_callback = self._get_pruning_callback(trial)
+            fit_params_with_pruning["callbacks"].append(pruning_callback)
 
             model.fit(X_train, y_train, **fit_params_with_pruning)
+
+            if self.model_name == "CatBoostRegressor":
+                pruning_callback.check_pruned()
+
             # Cross Validation
             cv = KFold(n_splits=5, shuffle=True, random_state=42)
             score = cross_val_score(
