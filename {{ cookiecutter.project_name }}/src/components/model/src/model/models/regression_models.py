@@ -6,8 +6,16 @@ import numpy as np
 import pandas as pd
 import xgboost as xgb
 from catboost import CatBoostRegressor
+from lightgbm import LGBMRegressor
 from model.hyperparameter_tuning import HyperparameterTuning
+from sklearn.ensemble import GradientBoostingRegressor, RandomForestRegressor
+from sklearn.linear_model import ElasticNet, Lasso, LinearRegression, Ridge
 from sklearn.model_selection import KFold, cross_validate
+from sklearn.neighbors import KNeighborsRegressor
+from sklearn.neural_network import MLPRegressor
+from sklearn.svm import SVR
+from sklearn.tree import DecisionTreeRegressor
+from xgboost import XGBRegressor
 
 logging.basicConfig(
     level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
@@ -17,18 +25,18 @@ logging.basicConfig(
 class RegressionModels:
     def __init__(self):
         self.models = [
-            # LinearRegression,
-            # Ridge,
-            # Lasso,
-            # ElasticNet,
-            # DecisionTreeRegressor,
-            # RandomForestRegressor,
-            # GradientBoostingRegressor,
-            # SVR,
-            # KNeighborsRegressor,
-            # MLPRegressor,
-            # XGBRegressor,
-            # LGBMRegressor,
+            LinearRegression,
+            Ridge,
+            Lasso,
+            ElasticNet,
+            DecisionTreeRegressor,
+            RandomForestRegressor,
+            GradientBoostingRegressor,
+            SVR,
+            KNeighborsRegressor,
+            MLPRegressor,
+            XGBRegressor,
+            LGBMRegressor,
             CatBoostRegressor,
         ]
         self.metrics = [

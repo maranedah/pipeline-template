@@ -216,6 +216,11 @@ class HyperparameterTuning:
                 mlflow.log_metric("best_mape", score)
                 mlflow.log_param("time", time() - start)
 
+        runs_df = mlflow.search_runs()
+        pruned_runs = runs_df[runs_df[f"metrics.{self.metrics}"].isna()]["run_id"]
+        for run_id in pruned_runs.tolist():
+            mlflow.delete_run(run_id)
+
         return score
 
     def run_tuning(
