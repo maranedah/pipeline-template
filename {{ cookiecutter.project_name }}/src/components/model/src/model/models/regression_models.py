@@ -61,12 +61,14 @@ class RegressionModels:
                 y=y,
                 scoring=self.metrics,
                 cv=cv,
-                fit_params=self.get_fit_params(
+                params=self.get_fit_params(
                     type(model), eval_set, early_stopping_rounds=5
                 ),
                 n_jobs=-1,
             )
             cv_info.append(result)
+
+        logging.info("Finished Cross Validation...")
         return cv_info
 
     def fit(self, X, y, eval_set):
@@ -153,7 +155,9 @@ class RegressionModels:
                 "eval_set": eval_set,
                 "eval_metric": "mape",
                 "callbacks": [
-                    lgb.early_stopping(stopping_rounds=early_stopping_rounds)
+                    lgb.early_stopping(
+                        stopping_rounds=early_stopping_rounds, verbose=False
+                    )
                 ],
             },
             "CatBoostRegressor": {
@@ -165,9 +169,7 @@ class RegressionModels:
             },
             "XGBRegressor": {
                 "eval_set": [eval_set],
-                "eval_metric": "mape",
-                "callbacks": [xgb.callback.EarlyStopping(rounds=5)],
-                "verbosity": 0,
+                "verbose": 0,
             },
         }
         if model_name in fit_params:
@@ -178,13 +180,19 @@ class RegressionModels:
     def get_init_params(self, model):
         model_name = type(model()).__name__
         init_params = {
-            "LGBMRegressor": {"verbosity": -1, "random_state": 42},
+            "LGBMRegressor": {"verbosity": -1, "random_state": 42, "verbose_eval": -1},
             "CatBoostRegressor": {
                 # "silent": True,
                 "random_seed": 42,
                 "eval_metric": "RMSE",
             },
-            "XGBRegressor": {"verbosity": 0, "random_seed": 42, "verbose_eval": False},
+            "XGBRegressor": {
+                "verbosity": 0,
+                "random_seed": 42,
+                "verbose_eval": False,
+                "eval_metric": "mape",
+                "callbacks": [xgb.callback.EarlyStopping(rounds=5)],
+            },
         }
         if model_name in init_params:
             return init_params[model_name]
