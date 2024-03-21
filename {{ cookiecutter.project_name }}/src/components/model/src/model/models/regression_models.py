@@ -10,7 +10,13 @@ import xgboost as xgb
 from catboost import CatBoostRegressor
 from lightgbm import LGBMRegressor
 from model.hyperparameter_tuning import HyperparameterTuning
+from sklearn.ensemble import GradientBoostingRegressor, RandomForestRegressor
+from sklearn.linear_model import ElasticNet, Lasso, LinearRegression, Ridge
 from sklearn.model_selection import KFold, cross_validate
+from sklearn.neighbors import KNeighborsRegressor
+from sklearn.neural_network import MLPRegressor
+from sklearn.svm import SVR
+from sklearn.tree import DecisionTreeRegressor
 from xgboost import XGBRegressor
 
 logging.basicConfig(
@@ -21,16 +27,16 @@ logging.basicConfig(
 class RegressionModels:
     def __init__(self):
         self.models = [
-            # LinearRegression,
-            # Ridge,
-            # Lasso,
-            # ElasticNet,
-            # DecisionTreeRegressor,
-            # RandomForestRegressor,
-            # GradientBoostingRegressor,
-            # SVR,
-            # KNeighborsRegressor,
-            # MLPRegressor,
+            LinearRegression,
+            Ridge,
+            Lasso,
+            ElasticNet,
+            DecisionTreeRegressor,
+            RandomForestRegressor,
+            GradientBoostingRegressor,
+            SVR,
+            KNeighborsRegressor,
+            MLPRegressor,
             XGBRegressor,
             LGBMRegressor,
             CatBoostRegressor,
@@ -44,8 +50,8 @@ class RegressionModels:
         ]
         self.tuning_metric = "neg_mean_absolute_percentage_error"
         self.cv_splits = 5
-        self.suggestion_trials = None
-        self.timeout_in_hours = 3
+        self.suggestion_trials = 1
+        self.timeout_in_hours = 0.01
 
     def init_models(self):
         logging.info("Instantiating models with default parameters")
@@ -136,9 +142,10 @@ class RegressionModels:
 
         def objective(trial):
             # Define the search space for parameters
-            a = trial.suggest_float("a", 0.0, 1.0)
-            b = trial.suggest_float("b", 0.0, 1.0 - a)
-            c = 1 - a - b
+            a = trial.suggest_float("a", -1.0, 1.0)
+            b = trial.suggest_float("b", -1.0, 1.0)
+            c = trial.suggest_float("c", -1.0, 1.0)
+            # c = 1 - a - b
 
             # Example objective function (can be replaced with any other function)
             predictions = [
@@ -150,13 +157,16 @@ class RegressionModels:
             return score
 
         # Perform optimization
-        study = optuna.create_study(direction="minimize")
-        study.optimize(objective, n_trials=1000)
+        study = optuna.create_study(
+            direction="minimize",
+            sampler=optuna.samplers.TPESampler(n_startup_trials=100),
+        )
+        study.optimize(objective, n_trials=1500)
         best_params = study.best_params
         self.mix_coefficients = [
             best_params["a"],
             best_params["b"],
-            1 - best_params["a"] - best_params["b"],
+            best_params["c"],
         ]
 
     def fit(self, X, y, eval_set):
