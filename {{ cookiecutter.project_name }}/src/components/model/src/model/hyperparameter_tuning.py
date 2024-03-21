@@ -1,5 +1,3 @@
-import logging
-import sys
 from copy import deepcopy
 from pathlib import Path
 from time import time
@@ -62,9 +60,6 @@ class HyperparameterTuning:
         self.model_init_params = model_init_params
         self.model_name = type(model()).__name__
 
-        optuna.logging.get_logger("optuna").addHandler(
-            logging.StreamHandler(sys.stdout)
-        )
         self.study = optuna.create_study(
             direction="minimize",
             study_name="",
@@ -91,7 +86,6 @@ class HyperparameterTuning:
                 "params": {"observation_key": "validation_0-mape"},
             },
         }
-        mlflow.set_experiment(self.model_name)
 
         hyperparams_path = Path(__file__).parent / "hyperparams" / "experiments.yml"
         experiments = yaml.safe_load(open(hyperparams_path, "r"))[self.model_name]
@@ -178,6 +172,7 @@ class HyperparameterTuning:
         float
             The objective value (evaluation metric) to be minimized.
         """
+        mlflow.set_experiment(self.model_name)
         with mlflow.start_run(nested=True):
             suggested_params = self.suggest_from_hyperparams_grid(trial)
             model = self.model(**suggested_params, **self.model_init_params)
@@ -206,15 +201,15 @@ class HyperparameterTuning:
             score = score if score > 0 else -score
             mlflow.log_params(suggested_params)
             mlflow.log_metric(self.metrics, score)
-            if len(self.study.trials) > 1:
-                best_mape = (
-                    score if score < self.study.best_value else self.study.best_value
-                )
-                mlflow.log_metric("best_mape", best_mape)
-                mlflow.log_param("time", time() - start)
-            else:
-                mlflow.log_metric("best_mape", score)
-                mlflow.log_param("time", time() - start)
+            # if len(self.study.trials) > 1:
+            #    best_mape = (
+            #        score if score < self.study.best_value else self.study.best_value
+            #    )
+            #    mlflow.log_metric("best_mape", best_mape)
+            #    mlflow.log_param("time", time() - start)
+            # else:
+            #    mlflow.log_metric("best_mape", score)
+            #    mlflow.log_param("time", time() - start)
 
         runs_df = mlflow.search_runs()
         pruned_runs = runs_df[runs_df[f"metrics.{self.metrics}"].isna()]["run_id"]
@@ -251,10 +246,10 @@ class HyperparameterTuning:
         optuna.Study
             The completed Optuna study after hyperparameter tuning.
         """
-        trials_df = self.study.trials_dataframe().copy()
+        # trials_df = self.study.trials_dataframe().copy()
         for _, trial in self.base_trials.items():
-            if not self.is_trial_in_database(trial, trials_df):
-                self.study.enqueue_trial(trial)
+            # if not self.is_trial_in_database(trial, trials_df):
+            self.study.enqueue_trial(trial, skip_if_exists=True)
 
         self.study.optimize(
             lambda trial: self.objective(
@@ -262,6 +257,7 @@ class HyperparameterTuning:
             ),
             n_trials=suggestion_trials,
             timeout=int(round(60 * 60 * timeout_in_hours)),
+            n_jobs=1,
         )
         return self.study
 

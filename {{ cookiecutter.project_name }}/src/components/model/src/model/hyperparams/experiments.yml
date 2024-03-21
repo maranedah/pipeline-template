@@ -1,61 +1,105 @@
-LGBMClassifier:
-  base_trials:
-    default:
-      learning_rate: 0.1
-      max_depth: -1 # <0 means no limit
-      n_estimators: 100
-      num_leaves: 5
-      objective: "gamma"
-      reg_alpha: 0.0
-      reg_lambda: 0.0
-      subsample: 1
-      subsample_freq: 0
-  grid:
-    learning_rate: [1.e-5, 1.e-1]
-    max_depth: [1, 10]
-    n_estimators: [100, 10000]
-    num_leaves: [1, 16]
-    objective: ["gamma"]
-    reg_alpha: [1.e-5, 100]
-    reg_lambda: [1.e-5, 100]
-    subsample: [0.85, 1]
-    subsample_freq: [0, 5]
-
 LGBMRegressor:
   base_trials:
     default:
+      objective: "regression"
       learning_rate: 0.1
-      max_depth: -1 # <0 means no limit
-      n_estimators: 100
       num_leaves: 31
+      max_depth: -1 
+      n_estimators: 100
+      min_data_in_leaf: 20
+      min_sum_hessian_in_leaf: 1.e-3
+      bagging_fraction: 1.0
       reg_alpha: 0.0
       reg_lambda: 0.0
-      subsample: 1
       subsample_freq: 0
+      feature_fraction: 1.0
+      feature_fraction_bynode: 1.0
+      max_delta_step: 0.0
+      max_bin: 255
+    best_found:
+      objective: "regression"
+      learning_rate: 0.09914121383443131
+      num_leaves: 57
+      max_depth: 10
+      n_estimators: 514
+      min_data_in_leaf: 20
+      min_sum_hessian_in_leaf: 1.e-3
+      reg_alpha: 1.4646671948482264
+      reg_lambda: 0.7315228384878054
+      bagging_fraction: 0.9373650999450522
+      subsample_freq: 4
+      feature_fraction: 1.0
+      feature_fraction_bynode: 1.0
+      max_delta_step: 0.0
+      max_bin: 255
   grid:
+    objective: ["regression", "regression_l1", "huber", "fair", "poisson", "mape", "gamma", "tweedie"]
     learning_rate: [1.e-5, 0.1]
-    max_depth: [2, 10]
-    n_estimators: [100, 10000]
     num_leaves: [2, 64]
+    max_depth: [2, 20]
+    n_estimators: [100, 1000]
+    min_data_in_leaf: [1, 40]
+    min_sum_hessian_in_leaf: [1.e-5, 10]
+    bagging_fraction: [0.5, 1.0]
     reg_alpha: [1.e-5, 100]
     reg_lambda: [1.e-5, 100]
-    subsample: [0.85, 1]
-    subsample_freq: [0, 5]
+    subsample_freq: [0, 10]
+    feature_fraction: [0.8, 1.0]
+    feature_fraction_bynode: [0.8, 1.0]
+    max_delta_step: [0.0, 10.0]
+    max_bin: [128, 512]
 
 XGBRegressor:
   base_trials:
     default:
       learning_rate: 0.3
+      min_split_loss: 0
       max_depth: 6
-      reg_alpha: 0
-      reg_lambda: 1
+      min_child_weight: 1
+      max_delta_step: 0
       subsample: 1
+      colsample_bytree: 1
+      colsample_bylevel: 1
+      colsample_bynode: 1
+      reg_lambda: 1
+      reg_alpha: 0
+      tree_method: "auto"
+      grow_policy: "depthwise"
+      max_bin: 256
+      objective: "reg:squarederror"
+    best_found:
+      learning_rate: 0.09933755175120741
+      min_split_loss: 0
+      max_depth: 10
+      min_child_weight: 1
+      max_delta_step: 0
+      subsample: 0.8960430482973574
+      colsample_bytree: 1
+      colsample_bylevel: 1
+      colsample_bynode: 1
+      reg_lambda: 13.601096219266921
+      reg_alpha: 0.41655361934417356
+      tree_method: "auto"
+      grow_policy: "depthwise"
+      max_bin: 256
+      objective: "reg:squarederror"
   grid:
     learning_rate: [1.e-5, 0.1]
-    max_depth: [1, 10]
-    reg_alpha: [1.e-5, 100]
+    min_split_loss: [0.0, 1.0]
+    max_depth: [1, 20]
+    min_child_weight: [0.0, 10]
+    max_delta_step: [0.0, 10]
+    subsample: [0.5, 1]
+    colsample_bytree: [0.5, 1]
+    colsample_bylevel: [0.5, 1]
+    colsample_bynode: [0.5, 1]
     reg_lambda: [1.e-5, 100]
-    subsample: [0.85, 1]
+    reg_alpha: [1.e-5, 100]
+    tree_method: ["auto", "approx"]
+    grow_policy: ["depthwise", "lossguide"]
+    max_bin: [128, 512]
+    reg: ["reg:squarederror", "reg:squaredlogerror", "reg:pseudohubererror", "reg:absoluteerror", "reg:gamma", "reg:tweedie"]
+
 
 
 CatBoostRegressor:
@@ -79,7 +123,6 @@ CatBoostRegressor:
       random_strength: 1
       rsm: 1
       boost_from_average: True
-      model_size_reg: 0.5
       pool_metainfo_options: {'tags': {}}
       subsample: 0.800000011920929
       use_best_model: False
@@ -101,45 +144,65 @@ CatBoostRegressor:
       leaf_estimation_iterations: 1
       bootstrap_type: 'MVS'
       max_leaves: 64
-      #learning_rate: 0.08
-      #depth: 6
-      #n_estimators: 1000
-      #l2_leaf_reg: 3.0
-      #subsample: 0.8
-      #bootstrap_type: "MVS"
-      #leaf_estimation_method: "Newton"
-      #sampling_frequency: "PerTree"
-      #boosting_type: "Plain"
-      #model_shrink_mode: "Constant"
-      #feature_border_type: "GreedyLogSum"
-      #bayesian_matrix_reg: 0.1
-      #random_strength: 1
-      #rsm: 1
-      #boost_from_average: True
-      #posterior_sampling: False
-      #model_size_reg: 0.5
-      #leaf_estimation_backtracking: "AnyImprovement"
-      #min_data_in_leaf: 1
 
+    best_found:
+      nan_mode: 'Min'
+      eval_metric: 'RMSE' 
+      iterations: 3000
+      sampling_frequency: 'PerTree'
+      leaf_estimation_method: 'Newton'
+      random_score_type: 'NormalWithModelSizeDecrease'
+      grow_policy: 'SymmetricTree'
+      penalties_coefficient: 1
+      boosting_type: 'Plain'
+      model_shrink_mode: 'Constant'
+      feature_border_type: 'GreedyLogSum'
+      bayesian_matrix_reg: 0.10000000149011612
+      eval_fraction: 0
+      force_unit_auto_pair_weights: False
+      l2_leaf_reg: 0.5092358708053079
+      random_strength: 1
+      rsm: 1
+      boost_from_average: True
+      pool_metainfo_options: {'tags': {}}
+      subsample: 0.9897972353935439
+      use_best_model: False
+      random_seed': 42
+      depth: 9
+      posterior_sampling: False
+      border_count: 254
+      classes_count: 0
+      auto_class_weights: 'None'
+      sparse_features_conflict_fraction: 0
+      leaf_estimation_backtracking: 'AnyImprovement'
+      best_model_min_trees: 1
+      model_shrink_rate: 0
+      min_data_in_leaf: 1 
+      loss_function': 'RMSE'
+      learning_rate: 0.09163475026555298
+      score_function: 'Cosine'
+      task_type: 'CPU'
+      leaf_estimation_iterations: 1
+      bootstrap_type: 'MVS'
+      max_leaves: 64
 
   grid:
     objective: ["RMSE"]
     learning_rate: [1.e-5, 1.e-1]
-    depth: [1, 10]
+    depth: [1, 16]
     n_estimators: [1000, 1001]
     l2_leaf_reg: [1.e-5, 100]
     subsample: [0.85, 1]
-    bootstrap_type: ["MVS"]
-    leaf_estimation_method: ["Newton"]
-    sampling_frequency: ["PerTree"]
-    boosting_type: ["Plain"]
-    model_shrink_mode: ["Constant"]
-    feature_border_type: ["GreedyLogSum"]
+    bootstrap_type: ["MVS"] #, "Bernoulli"]
+    leaf_estimation_method: ["Newton"] #, "Gradient"]
+    sampling_frequency: ["PerTree"] #, "PerTreeLevel"]
+    boosting_type: ["Plain"] #, "Ordered"]
+    model_shrink_mode: ["Constant"] #, "Decreasing"]
+    feature_border_type: ["GreedyLogSum"] #, "Median", "Uniform", "MinEntropy"]
     #bayesian_matrix_reg: [0.1, 0.1]
     random_strength: [1, 1]
-    rsm: [1, 1]
+    rsm: [1.e-5, 1]
     #boost_from_average: [True]
     #posterior_sampling: False
-    model_size_reg: [0.5, 0.5]
     leaf_estimation_backtracking: ["AnyImprovement"]
-    min_data_in_leaf: [1,1]
+    min_data_in_leaf: [1,10]
