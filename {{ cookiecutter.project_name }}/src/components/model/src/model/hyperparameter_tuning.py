@@ -1,23 +1,20 @@
 from copy import deepcopy
 from pathlib import Path
-from time import time
 
 import lightgbm as lgb
 import mlflow
 import optuna
 import pandas as pd
 import yaml
-from optuna.integration import (
-    CatBoostPruningCallback,
-    LightGBMPruningCallback,
-    XGBoostPruningCallback,
-)
 from sklearn.model_selection import KFold, cross_val_score
 
+from .callbacks import (
+    MLFlowLogCallback,
+    ModelPruningCallback,
+    StopWhenTrialKeepBeingPrunedCallback,
+)
 from .constants import MODELS
 from .model import split_data
-
-start = time()
 
 
 class HyperparameterTuning:
@@ -56,72 +53,62 @@ class HyperparameterTuning:
             Name of the experiment for storing the optimization results.
         """
         self.model = model
-        self.metrics = metrics
+        self.metric = metrics
         self.model_init_params = model_init_params
         self.model_name = type(model()).__name__
+        mlflow.set_experiment(self.model_name)
 
         self.study = optuna.create_study(
             direction="minimize",
-            study_name="",
+            study_name=self.model_name,
             storage=f"sqlite:///{self.model_name}.db",
             load_if_exists=True,
             pruner=optuna.pruners.MedianPruner(
-                n_startup_trials=0, n_warmup_steps=10, n_min_trials=1
+                n_startup_trials=0, n_warmup_steps=10, n_min_trials=5
             ),
             sampler=optuna.samplers.TPESampler(
                 n_startup_trials=100, multivariate=True, seed=42
             ),
         )
-        self.pruning_callbacks = {
-            "CatBoostRegressor": {
-                "callback": CatBoostPruningCallback,
-                "params": {"metric": "RMSE"},
-            },
-            "LGBMRegressor": {
-                "callback": LightGBMPruningCallback,
-                "params": {"metric": "mape", "report_interval": 1},
-            },
-            "XGBRegressor": {
-                "callback": XGBoostPruningCallback,
-                "params": {"observation_key": "validation_0-mape"},
-            },
-        }
 
         hyperparams_path = Path(__file__).parent / "hyperparams" / "experiments.yml"
         experiments = yaml.safe_load(open(hyperparams_path, "r"))[self.model_name]
 
         self.base_trials = experiments["base_trials"]
+        self.grid = self.parse_grid(experiments)
 
+    def parse_grid(self, experiments):
         # Initializing the grid to match optuna's suggestions
-        self.grid = {}
+        grid = {}
         for param, _range in experiments["grid"].items():
-            self.grid[param] = {}
+            grid[param] = {}
             # If any element is string
             if any(isinstance(v, str) for v in _range):
-                self.grid[param]["type"] = "categorical"
-                self.grid[param]["params"] = {"name": param, "choices": _range}
+                grid[param]["type"] = "categorical"
+                grid[param]["params"] = {"name": param, "choices": _range}
             # If all elements are int
             elif all(isinstance(v, int) for v in _range):
-                self.grid[param]["type"] = "int"
-                self.grid[param]["params"] = {
+                grid[param]["type"] = "int"
+                grid[param]["params"] = {
                     "name": param,
                     "low": min(_range),
                     "high": max(_range),
                 }
             # If all elements are bool
             elif all(isinstance(v, bool) for v in _range):
-                self.grid[param]["type"] = "categorical"
-                self.grid[param]["params"] = {"name": param, "choices": _range}
+                grid[param]["type"] = "categorical"
+                grid[param]["params"] = {"name": param, "choices": _range}
             # If all elements are numeric
             elif all(isinstance(v, (float, int)) for v in _range):
-                self.grid[param]["type"] = "float"
-                self.grid[param]["params"] = {
+                grid[param]["type"] = "float"
+                grid[param]["params"] = {
                     "name": param,
                     "low": min(_range),
                     "high": max(_range),
                 }
             else:
                 raise TypeError("YAML suggestion grid has bad formatting")
+        return grid
 
     def suggest_from_hyperparams_grid(
         self, trial: optuna.trial
@@ -150,13 +137,44 @@ class HyperparameterTuning:
         }
         return suggestions
 
-    def _get_pruning_callback(self, trial):
-        return self.pruning_callbacks[self.model_name]["callback"](
-            trial,
-            **self.pruning_callbacks[self.model_name]["params"],
-        )
+    def check_for_pruning(self, trial, X_train, y_train, suggested_params, fit_params):
+        # Init model
+        model = self.model(**suggested_params, **self.model_init_params)
 
-    def objective(self, trial, X_train, y_train, fit_params, cv_splits) -> float:
+        # Init pruning callback
+        pruning_callback = ModelPruningCallback(self.model_name, trial)
+
+        # Add pruning callback to fit_params
+        fit_params_with_pruning = deepcopy(fit_params)
+        fit_params_with_pruning["callbacks"].append(pruning_callback)
+
+        # Fit model
+        model.fit(X_train, y_train, **fit_params_with_pruning)
+
+        # Catboost Pruning needs to be manually called
+        if self.model_name == "CatBoostRegressor":
+            pruning_callback.check_pruned()
+
+    def score_model(self, X_train, y_train, suggested_params, fit_params):
+        # Define Cross Validation folds
+        cv = KFold(n_splits=5, shuffle=True, random_state=42)
+
+        # Score model
+        score = cross_val_score(
+            estimator=self.model(**suggested_params, **self.model_init_params),
+            X=X_train,
+            y=y_train,
+            scoring=self.metric,
+            params=fit_params,
+            cv=cv,
+            n_jobs=1,
+        ).mean()
+
+        # sklearn makes positive functions to be negative
+        score = score if score > 0 else -score
+        return score
+
+    def objective(self, trial, X_train, y_train, fit_params) -> float:
         """
         Objective function for optimization.
 
@@ -176,49 +194,15 @@ class HyperparameterTuning:
         float
             The objective value (evaluation metric) to be minimized.
         """
-        mlflow.set_experiment(self.model_name)
-        with mlflow.start_run(nested=True):
-            suggested_params = self.suggest_from_hyperparams_grid(trial)
-            model = self.model(**suggested_params, **self.model_init_params)
 
-            # Run a model and see if we need to prune
-            fit_params_with_pruning = deepcopy(fit_params)
-            pruning_callback = self._get_pruning_callback(trial)
-            fit_params_with_pruning["callbacks"].append(pruning_callback)
+        # Parse hparams
+        suggested_params = self.suggest_from_hyperparams_grid(trial)
 
-            model.fit(X_train, y_train, **fit_params_with_pruning)
+        # Check if we need to prune the model
+        self.check_for_pruning(trial, X_train, y_train, suggested_params, fit_params)
 
-            if self.model_name == "CatBoostRegressor":
-                pruning_callback.check_pruned()
-
-            # Cross Validation
-            cv = KFold(n_splits=5, shuffle=True, random_state=42)
-            score = cross_val_score(
-                estimator=self.model(**suggested_params, **self.model_init_params),
-                X=X_train,
-                y=y_train,
-                scoring=self.metrics,
-                fit_params=fit_params,
-                cv=cv,
-                n_jobs=1,
-            ).mean()
-            score = score if score > 0 else -score
-            mlflow.log_params(suggested_params)
-            mlflow.log_metric(self.metrics, score)
-            # if len(self.study.trials) > 1:
-            #    best_mape = (
-            #        score if score < self.study.best_value else self.study.best_value
-            #    )
-            #    mlflow.log_metric("best_mape", best_mape)
-            #    mlflow.log_param("time", time() - start)
-            # else:
-            #    mlflow.log_metric("best_mape", score)
-            #    mlflow.log_param("time", time() - start)
-
-        runs_df = mlflow.search_runs()
-        pruned_runs = runs_df[runs_df[f"metrics.{self.metrics}"].isna()]["run_id"]
-        for run_id in pruned_runs.tolist():
-            mlflow.delete_run(run_id)
+        # Score model
+        score = self.score_model(X_train, y_train, suggested_params, fit_params)
 
         return score
 
@@ -227,7 +211,6 @@ class HyperparameterTuning:
         X_train,
         y_train,
         fit_params,
-        cv_splits,
         suggestion_trials,
         timeout_in_hours,
     ):
@@ -250,30 +233,20 @@ class HyperparameterTuning:
         optuna.Study
             The completed Optuna study after hyperparameter tuning.
         """
-        # trials_df = self.study.trials_dataframe().copy()
         for _, trial in self.base_trials.items():
-            # if not self.is_trial_in_database(trial, trials_df):
             self.study.enqueue_trial(trial, skip_if_exists=True)
 
         self.study.optimize(
-            lambda trial: self.objective(
-                trial, X_train, y_train, fit_params, cv_splits
-            ),
+            lambda trial: self.objective(trial, X_train, y_train, fit_params),
             n_trials=suggestion_trials,
             timeout=int(round(60 * 60 * timeout_in_hours)),
+            callbacks=[
+                MLFlowLogCallback(metric_name=self.metric),
+                StopWhenTrialKeepBeingPrunedCallback(threshold=1000),
+            ],
             n_jobs=1,
         )
         return self.study
-
-    def is_trial_in_database(self, trial, trials_df):
-        trial_exists = (
-            len(trials_df) > 0
-            and trials_df["system_attrs_fixed_params"]
-            .astype(str)
-            .isin([str(trial)])
-            .any()
-        )
-        return trial_exists
 
 
 def run_hyperparameter_tuning(
@@ -288,8 +261,7 @@ def run_hyperparameter_tuning(
     df = pd.read_parquet(preprocessed_data_uri)
     (X_train, y_train), (X_val, y_val), (X_test, y_test) = split_data(df, split_ratio)
     model = MODELS[model_str]
-    cv_splits = 5
-    tuning = HyperparameterTuning(model, metrics="f1_macro", model_init_params={})
+    tuning = HyperparameterTuning(model, metric="f1_macro", model_init_params={})
     fit_params = {
         "eval_set": (X_val, y_val),
         "callbacks": [
@@ -297,9 +269,7 @@ def run_hyperparameter_tuning(
             # LightGBMPruningCallback(trial, "multi_logloss")
         ],
     }
-    tuning.run_tuning(
-        X_train, y_train, fit_params, cv_splits, suggestion_trials, timeout_in_hours
-    )
+    tuning.run_tuning(X_train, y_train, fit_params, suggestion_trials, timeout_in_hours)
 
 
 # run_hyperparameter_tuning(

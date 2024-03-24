@@ -50,8 +50,8 @@ class RegressionModels:
         ]
         self.tuning_metric = "neg_mean_absolute_percentage_error"
         self.cv_splits = 5
-        self.suggestion_trials = 1
-        self.timeout_in_hours = 0.01
+        self.suggestion_trials = None
+        self.timeout_in_hours = 10
 
     def init_models(self):
         logging.info("Instantiating models with default parameters")
@@ -119,7 +119,6 @@ class RegressionModels:
                 X,
                 y,
                 self.get_fit_params(model, eval_set),
-                self.cv_splits,
                 self.suggestion_trials,
                 self.timeout_in_hours,
             )
@@ -232,7 +231,7 @@ class RegressionModels:
             "LGBMRegressor": {"verbosity": -1, "random_state": 42, "verbose_eval": -1},
             "CatBoostRegressor": {
                 "random_seed": 42,
-                "eval_metric": "RMSE",
+                "eval_metric": "MAPE",
             },
             "XGBRegressor": {
                 "verbosity": 0,
