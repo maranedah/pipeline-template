@@ -66,7 +66,7 @@ class HyperparameterTuning:
             storage=f"sqlite:///{self.model_name}.db",
             load_if_exists=True,
             pruner=optuna.pruners.MedianPruner(
-                n_startup_trials=0, n_warmup_steps=10, n_min_trials=5
+                n_startup_trials=0, n_warmup_steps=10, n_min_trials=1
             ),
             sampler=optuna.samplers.TPESampler(
                 n_startup_trials=100, multivariate=True, seed=42
@@ -108,6 +108,10 @@ class HyperparameterTuning:
                     "low": min(_range),
                     "high": max(_range),
                 }
+            # If all elements are bool
+            elif all(isinstance(v, bool) for v in _range):
+                self.grid[param]["type"] = "categorical"
+                self.grid[param]["params"] = {"name": param, "choices": _range}
             # If all elements are numeric
             elif all(isinstance(v, (float, int)) for v in _range):
                 self.grid[param]["type"] = "float"
@@ -196,7 +200,7 @@ class HyperparameterTuning:
                 scoring=self.metrics,
                 fit_params=fit_params,
                 cv=cv,
-                n_jobs=-1,
+                n_jobs=1,
             ).mean()
             score = score if score > 0 else -score
             mlflow.log_params(suggested_params)

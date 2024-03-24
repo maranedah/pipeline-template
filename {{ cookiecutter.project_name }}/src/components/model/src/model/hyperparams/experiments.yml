@@ -116,32 +116,17 @@ CatBoostRegressor:
       boosting_type: 'Plain'
       model_shrink_mode: 'Constant'
       feature_border_type: 'GreedyLogSum'
-      bayesian_matrix_reg: 0.10000000149011612
-      eval_fraction: 0
-      force_unit_auto_pair_weights: False
       l2_leaf_reg: 3
       random_strength: 1
       rsm: 1
-      boost_from_average: True
-      pool_metainfo_options: {'tags': {}}
       subsample: 0.800000011920929
-      use_best_model: False
-      random_seed': 42
+      random_seed: 42
       depth: 6
       posterior_sampling: False
-      border_count: 254
-      classes_count: 0
-      auto_class_weights: 'None'
-      sparse_features_conflict_fraction: 0
-      leaf_estimation_backtracking: 'AnyImprovement'
-      best_model_min_trees: 1
       model_shrink_rate: 0
-      min_data_in_leaf: 1 
       loss_function': 'RMSE'
       learning_rate: 0.0637660026550293
       score_function: 'Cosine'
-      task_type: 'CPU'
-      leaf_estimation_iterations: 1
       bootstrap_type: 'MVS'
       max_leaves: 64
 
@@ -157,52 +142,54 @@ CatBoostRegressor:
       boosting_type: 'Plain'
       model_shrink_mode: 'Constant'
       feature_border_type: 'GreedyLogSum'
-      bayesian_matrix_reg: 0.10000000149011612
-      eval_fraction: 0
-      force_unit_auto_pair_weights: False
       l2_leaf_reg: 0.5092358708053079
       random_strength: 1
       rsm: 1
-      boost_from_average: True
-      pool_metainfo_options: {'tags': {}}
       subsample: 0.9897972353935439
-      use_best_model: False
       random_seed': 42
       depth: 9
       posterior_sampling: False
-      border_count: 254
-      classes_count: 0
-      auto_class_weights: 'None'
-      sparse_features_conflict_fraction: 0
-      leaf_estimation_backtracking: 'AnyImprovement'
-      best_model_min_trees: 1
       model_shrink_rate: 0
-      min_data_in_leaf: 1 
       loss_function': 'RMSE'
       learning_rate: 0.09163475026555298
       score_function: 'Cosine'
-      task_type: 'CPU'
-      leaf_estimation_iterations: 1
       bootstrap_type: 'MVS'
       max_leaves: 64
+    best_small:
+      objective: 'RMSE'
+      learning_rate: 0.23846390993214034
+      depth: 6
+      n_estimators: 1000
+      l2_leaf_reg: 49.251774456709455
+      subsample: 0.8792864481697067
+      bootstrap_type: 'MVS'
+      leaf_estimation_method: 'Newton'
+      sampling_frequency: 'PerTree'
+      boosting_type: 'Plain'
+      model_shrink_mode: 'Constant'
+      feature_border_type: 'GreedyLogSum'
+      random_strength: 1
+      rsm: 1
+      model_size_reg: 0.5
 
   grid:
     objective: ["RMSE"]
-    learning_rate: [1.e-5, 1.e-1]
-    depth: [1, 16]
+    learning_rate: [1.e-5, 3.e-1]
+    grow_policy: ['SymmetricTree']
+    random_score_type: ["Gumbel", "NormalWithModelSizeDecrease"]
+    penalties_coefficient: [0.5, 2.0]
+    depth: [5, 10]
     n_estimators: [1000, 1001]
     l2_leaf_reg: [1.e-5, 100]
     subsample: [0.85, 1]
-    bootstrap_type: ["MVS"] #, "Bernoulli"]
-    leaf_estimation_method: ["Newton"] #, "Gradient"]
-    sampling_frequency: ["PerTree"] #, "PerTreeLevel"]
-    boosting_type: ["Plain"] #, "Ordered"]
-    model_shrink_mode: ["Constant"] #, "Decreasing"]
-    feature_border_type: ["GreedyLogSum"] #, "Median", "Uniform", "MinEntropy"]
-    #bayesian_matrix_reg: [0.1, 0.1]
-    random_strength: [1, 1]
-    rsm: [1.e-5, 1]
-    #boost_from_average: [True]
-    #posterior_sampling: False
-    leaf_estimation_backtracking: ["AnyImprovement"]
-    min_data_in_leaf: [1,10]
+    bootstrap_type: ["MVS", "Bernoulli"]
+    leaf_estimation_method: ["Newton", "Gradient"]
+    sampling_frequency: ["PerTree", "PerTreeLevel"]
+    boosting_type: ["Plain", "Ordered"]
+    model_shrink_mode: ["Constant", "Decreasing"]
+    feature_border_type: ["GreedyLogSum", "Median", "Uniform", "MinEntropy"]
+    # posterior_sampling: [true, false] # TODO: Parse booleans in tuning
+    score_function: ["Cosine", "L2"]
+    random_strength: [0.5, 2]
+    #model_shrink_rate: [0, 0.9]
+    rsm: [0.1, 1]

@@ -100,7 +100,8 @@ class RegressionModels:
     def get_top_k_models(self, df_models_score, top_k):
         top_k_models = (
             df_models_score.nlargest(n=top_k, columns=f"test_{self.tuning_metric}")
-            .index.map(self.models.__getitem__)
+            .index.map(lambda x: (len(self.models) - 1) - x)
+            .map(self.models.__getitem__)
             .tolist()
         )
         return top_k_models
@@ -176,6 +177,7 @@ class RegressionModels:
         top_models_score, studies = self.best_models_hparams_tuning(
             best_models, eval_set
         )
+        print(top_models_score)
         self.best_models = self.init_tuned_models(best_models, studies, eval_set)
 
         self.ensemble_tuning(eval_set)
@@ -229,7 +231,6 @@ class RegressionModels:
         init_params = {
             "LGBMRegressor": {"verbosity": -1, "random_state": 42, "verbose_eval": -1},
             "CatBoostRegressor": {
-                # "silent": True,
                 "random_seed": 42,
                 "eval_metric": "RMSE",
             },
@@ -262,6 +263,7 @@ if __name__ == "__main__":
         X_, y_, test_size=0.5, random_state=42
     )
     model.fit(X_train, y_train, eval_set=(X_val, y_val))
+
     print(mean_absolute_percentage_error(y_test, model.predict(X_test)))
     print(mean_absolute_percentage_error(y_test, model.predict_ensemble_mean(X_test)))
     print(mean_absolute_percentage_error(y_test, model.predict_ensemble(X_test)))
