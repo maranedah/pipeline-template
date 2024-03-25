@@ -244,7 +244,7 @@ class HyperparameterTuning:
             callbacks=[
                 MLFlowLogCallback(metric_name=self.metric),
                 StopWhenTrialKeepBeingPrunedCallback(threshold=1000),
-                StopIfStudyDoesNotImproveCallback(threshold=2000),
+                StopIfStudyDoesNotImproveCallback(threshold=5000),
             ],
             n_jobs=1,
         )

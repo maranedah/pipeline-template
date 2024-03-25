@@ -53,6 +53,7 @@ LGBMRegressor:
 XGBRegressor:
   base_trials:
     default:
+      objective: "reg:squarederror"
       n_estimators: 1000
       learning_rate: 0.3
       max_depth: 6
@@ -71,6 +72,7 @@ XGBRegressor:
     colsample_bynode: [0.1, 1]
     gamma: [0.01, 1.0]
     min_child_weight: [0.01, 10.0]
+    objective: ["reg:squarederror", "reg:squaredlogerror", "reg:pseudohubererror", "reg:absoluteerror", "reg:gamma", "reg:tweedie"]
 
 
 CatBoostRegressor:
