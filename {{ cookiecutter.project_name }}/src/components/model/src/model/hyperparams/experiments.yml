@@ -17,21 +17,21 @@ LGBMRegressor:
       max_delta_step: 0.0
       max_bin: 255
     best_found:
-      objective: "regression"
-      learning_rate: 0.09914121383443131
-      num_leaves: 57
-      max_depth: 10
-      n_estimators: 514
-      min_data_in_leaf: 20
-      min_sum_hessian_in_leaf: 1.e-3
-      reg_alpha: 1.4646671948482264
-      reg_lambda: 0.7315228384878054
-      bagging_fraction: 0.9373650999450522
-      subsample_freq: 4
-      feature_fraction: 1.0
-      feature_fraction_bynode: 1.0
-      max_delta_step: 0.0
-      max_bin: 255
+      objective: 'regression_l1'
+      learning_rate: 0.09955602146046562
+      num_leaves: 62
+      max_depth: 19
+      n_estimators: 977 
+      min_data_in_leaf: 2
+      min_sum_hessian_in_leaf: 0.252132217705505
+      bagging_fraction: 0.8057087769052775
+      reg_alpha: 5.912943827615446
+      reg_lambda: 12.19058643459158
+      subsample_freq: 0
+      feature_fraction: 0.8147072417368565
+      feature_fraction_bynode: 0.9892488672802201
+      max_delta_step: 2.178503860570072
+      max_bin: 405
   grid:
     objective: ["regression", "regression_l1", "huber", "fair", "poisson", "mape", "gamma", "tweedie"]
     learning_rate: [1.e-5, 0.1]
@@ -48,21 +48,29 @@ LGBMRegressor:
     feature_fraction_bynode: [0.8, 1.0]
     max_delta_step: [0.0, 10.0]
     max_bin: [128, 512]
+  
 
 XGBRegressor:
   base_trials:
     default:
+      n_estimators: 1000
       learning_rate: 0.3
       max_depth: 6
       reg_alpha: 0
       reg_lambda: 1
       subsample: 1
   grid:
-    learning_rate: [1.e-5, 0.1]
-    max_depth: [1, 10]
+    n_estimators: [500,2000]
+    learning_rate: [1.e-5, 0.3]
+    max_depth: [1, 16]
     reg_alpha: [1.e-5, 100]
     reg_lambda: [1.e-5, 100]
-    subsample: [0.85, 1]
+    subsample: [0.8, 1]
+    colsample_bytree: [0.1, 1]
+    colsample_bylevel: [0.1, 1] 
+    colsample_bynode: [0.1, 1]
+    gamma: [0.01, 1.0]
+    min_child_weight: [0.01, 10.0]
 
 
 CatBoostRegressor:
@@ -92,7 +100,6 @@ CatBoostRegressor:
       score_function: 'Cosine'
       bootstrap_type: 'MVS'
       max_leaves: 64
-
     best_found:
       nan_mode: 'Min'
       eval_metric: 'RMSE' 
@@ -117,21 +124,6 @@ CatBoostRegressor:
       score_function: 'Cosine'
       bootstrap_type: 'MVS'
       max_leaves: 64
-    best_small:
-      objective: 'RMSE'
-      learning_rate: 0.23846390993214034
-      depth: 6
-      l2_leaf_reg: 49.251774456709455
-      subsample: 0.8792864481697067
-      bootstrap_type: 'MVS'
-      leaf_estimation_method: 'Newton'
-      sampling_frequency: 'PerTree'
-      boosting_type: 'Plain'
-      model_shrink_mode: 'Constant'
-      feature_border_type: 'GreedyLogSum'
-      random_strength: 1
-      rsm: 1
-      model_size_reg: 0.5
 
   grid:
     objective: ["RMSE"]

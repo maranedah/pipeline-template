@@ -9,6 +9,7 @@ import pandas as pd
 import xgboost as xgb
 from catboost import CatBoostRegressor
 from lightgbm import LGBMRegressor
+from model.callbacks import StopIfStudyDoesNotImproveCallback
 from model.hyperparameter_tuning import HyperparameterTuning
 from sklearn.ensemble import GradientBoostingRegressor, RandomForestRegressor
 from sklearn.linear_model import ElasticNet, Lasso, LinearRegression, Ridge
@@ -116,8 +117,8 @@ class RegressionModels:
                 metrics=self.tuning_metric,
                 model_init_params=self.get_init_params(model),
             ).run_tuning(
-                X,
-                y,
+                X_train,
+                y_train,
                 self.get_fit_params(model, eval_set),
                 self.suggestion_trials,
                 self.timeout_in_hours,
@@ -145,7 +146,6 @@ class RegressionModels:
             a = trial.suggest_float("a", -1.0, 1.0)
             b = trial.suggest_float("b", -1.0, 1.0)
             c = trial.suggest_float("c", -1.0, 1.0)
-            # c = 1 - a - b
 
             # Example objective function (can be replaced with any other function)
             predictions = [
@@ -161,7 +161,11 @@ class RegressionModels:
             direction="minimize",
             sampler=optuna.samplers.TPESampler(n_startup_trials=100),
         )
-        study.optimize(objective, n_trials=1500)
+        study.optimize(
+            objective,
+            n_trials=None,
+            callbacks=[StopIfStudyDoesNotImproveCallback(threshold=1000)],
+        )
         best_params = study.best_params
         self.mix_coefficients = [
             best_params["a"],
@@ -205,19 +209,18 @@ class RegressionModels:
             "LGBMRegressor": {
                 "eval_set": eval_set,
                 "eval_metric": "mape",
-                "callbacks": [lgb.early_stopping(stopping_rounds=5, verbose=False)],
+                "callbacks": [lgb.early_stopping(stopping_rounds=10, verbose=False)],
             },
             "CatBoostRegressor": {
                 "eval_set": eval_set,
                 "verbose": 0,
-                # TODO: find how to add mape metric to catboost
-                "early_stopping_rounds": 5,
+                "early_stopping_rounds": 10,
                 "callbacks": [],
             },
             "XGBRegressor": {
                 "eval_set": [eval_set],
                 "verbose": 0,
-                "callbacks": [xgb.callback.EarlyStopping(rounds=5)],
+                "callbacks": [xgb.callback.EarlyStopping(rounds=10)],
             },
         }
         if model_name in fit_params:

@@ -11,6 +11,7 @@ from sklearn.model_selection import KFold, cross_val_score
 from .callbacks import (
     MLFlowLogCallback,
     ModelPruningCallback,
+    StopIfStudyDoesNotImproveCallback,
     StopWhenTrialKeepBeingPrunedCallback,
 )
 from .constants import MODELS
@@ -64,7 +65,7 @@ class HyperparameterTuning:
             storage=f"sqlite:///{self.model_name}.db",
             load_if_exists=True,
             pruner=optuna.pruners.MedianPruner(
-                n_startup_trials=0, n_warmup_steps=10, n_min_trials=5
+                n_startup_trials=0, n_warmup_steps=10, n_min_trials=10
             ),
             sampler=optuna.samplers.TPESampler(
                 n_startup_trials=100, multivariate=True, seed=42
@@ -138,15 +139,15 @@ class HyperparameterTuning:
         return suggestions
 
     def check_for_pruning(self, trial, X_train, y_train, suggested_params, fit_params):
-        # Init model
-        model = self.model(**suggested_params, **self.model_init_params)
-
         # Init pruning callback
         pruning_callback = ModelPruningCallback(self.model_name, trial)
 
         # Add pruning callback to fit_params
         fit_params_with_pruning = deepcopy(fit_params)
         fit_params_with_pruning["callbacks"].append(pruning_callback)
+
+        # Init model
+        model = self.model(**suggested_params, **self.model_init_params)
 
         # Fit model
         model.fit(X_train, y_train, **fit_params_with_pruning)
@@ -243,6 +244,7 @@ class HyperparameterTuning:
             callbacks=[
                 MLFlowLogCallback(metric_name=self.metric),
                 StopWhenTrialKeepBeingPrunedCallback(threshold=1000),
+                StopIfStudyDoesNotImproveCallback(threshold=1000),
             ],
             n_jobs=1,
         )
