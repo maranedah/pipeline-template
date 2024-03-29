@@ -6,7 +6,8 @@ import mlflow
 import optuna
 import pandas as pd
 import yaml
-from sklearn.model_selection import KFold, cross_val_score
+
+from model.models.Scoring import cross_validation_score
 
 from .callbacks import (
     MLFlowLogCallback,
@@ -44,7 +45,7 @@ class HyperparameterTuning:
     base_trials: dict
     hyperparams_grid: dict
 
-    def __init__(self, model, metrics, model_init_params):
+    def __init__(self, model, metric, model_init_params):
         """
         Initialize the HyperparameterTuning object.
 
@@ -54,13 +55,13 @@ class HyperparameterTuning:
             Name of the experiment for storing the optimization results.
         """
         self.model = model
-        self.metric = metrics
+        self.metric = metric
         self.model_init_params = model_init_params
         self.model_name = type(model()).__name__
         mlflow.set_experiment(self.model_name)
 
         self.study = optuna.create_study(
-            direction="minimize",
+            direction="maximize",
             study_name=self.model_name,
             storage=f"sqlite:///{self.model_name}.db",
             load_if_exists=True,
@@ -72,7 +73,7 @@ class HyperparameterTuning:
             ),
         )
 
-        hyperparams_path = Path(__file__).parent / "hyperparams" / "experiments.yml"
+        hyperparams_path = Path(__file__).parent / "hyperparams" / "classification.yml"
         experiments = yaml.safe_load(open(hyperparams_path, "r"))[self.model_name]
 
         self.base_trials = experiments["base_trials"]
@@ -153,27 +154,24 @@ class HyperparameterTuning:
         model.fit(X_train, y_train, **fit_params_with_pruning)
 
         # Catboost Pruning needs to be manually called
-        if self.model_name == "CatBoostRegressor":
+        if "CatBoost" in self.model_name:
             pruning_callback.check_pruned()
 
-    def score_model(self, X_train, y_train, suggested_params, fit_params):
-        # Define Cross Validation folds
-        cv = KFold(n_splits=5, shuffle=True, random_state=42)
+        return model
 
+    def score_model(self, X_train, y_train, suggested_params, fit_params):
         # Score model
-        score = cross_val_score(
+        result = cross_validation_score(
             estimator=self.model(**suggested_params, **self.model_init_params),
             X=X_train,
             y=y_train,
-            scoring=self.metric,
-            params=fit_params,
-            cv=cv,
-            n_jobs=1,
-        ).mean()
+            score_funcs=[self.metric],
+            n_splits=5,
+            fit_params=fit_params,
+            random_state=42,
+        )
 
-        # sklearn makes positive functions to be negative
-        score = score if score > 0 else -score
-        return score
+        return result[self.metric.__name__]
 
     def objective(self, trial, X_train, y_train, fit_params) -> float:
         """
@@ -203,6 +201,7 @@ class HyperparameterTuning:
         self.check_for_pruning(trial, X_train, y_train, suggested_params, fit_params)
 
         # Score model
+        # score = model.predict
         score = self.score_model(X_train, y_train, suggested_params, fit_params)
 
         return score
@@ -242,7 +241,7 @@ class HyperparameterTuning:
             n_trials=suggestion_trials,
             timeout=int(round(60 * 60 * timeout_in_hours)),
             callbacks=[
-                MLFlowLogCallback(metric_name=self.metric),
+                MLFlowLogCallback(metric_name=self.metric.__name__),
                 StopWhenTrialKeepBeingPrunedCallback(threshold=1000),
                 StopIfStudyDoesNotImproveCallback(threshold=5000),
             ],

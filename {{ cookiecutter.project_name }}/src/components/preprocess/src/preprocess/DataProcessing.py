@@ -16,6 +16,7 @@ class DataProcessing:
         encode=[],
     ):
         self.df = df
+        # self.to_half_precision()
         if remove_rows_where:
             for setting in remove_rows_where:
                 self.remove_rows_where(**setting)
@@ -32,6 +33,11 @@ class DataProcessing:
             mask = self.df[column].apply(condition)
             self.df = self.df[~mask].reset_index(drop=True)
 
+    def to_half_precision(self):
+        float64_columns = self.df.select_dtypes(include=["float64"]).columns
+        for column in float64_columns:
+            self.df[column].astype("float32")
+
     def replace(self, columns: list[str], condition: callable, new_value: any):
         self.df[columns] = self.df[columns].map(
             lambda x: new_value if condition(x) else x
@@ -42,11 +48,12 @@ class DataProcessing:
         if isinstance(encoder, LabelEncoder):
             self.df[f"encoded_{column}"] = encoder.fit_transform(self.df[column])
         elif isinstance(encoder, OneHotEncoder):
+            print(column, self.df[[column]].nunique())
             self.df = pd.concat(
                 [
                     self.df,
                     pd.DataFrame(
-                        encoder.fit_transform(self.df[[column]]),
+                        encoder.fit_transform(self.df[[column]]).astype(bool),
                         columns=encoder.get_feature_names_out([column]),
                     ),
                 ],

@@ -161,3 +161,9 @@ cython_debug/
 
 # Optuna
 **/*.db
+
+# Data
+**/*.parquet
+**/*.csv
+**/*.xlsx
+**/*.npy

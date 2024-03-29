@@ -1,29 +1,17 @@
 import pandas as pd
-from sklearn.preprocessing import LabelEncoder, OneHotEncoder
-
-from .DataProcessing import DataProcessing
+from DataProcessing import DataProcessing
+from sklearn.preprocessing import OneHotEncoder
 
 
 def run_preprocess(project_id: str, palmer_penguins_uri: str) -> list[pd.DataFrame]:
     palmer_penguins = pd.read_parquet(palmer_penguins_uri)
     my_data = DataProcessing(
         df=palmer_penguins,
-        remove_rows_where=[
-            {
-                "columns": [
-                    "bill_length_mm",
-                    "bill_depth_mm",
-                    "flipper_length_mm",
-                    "body_mass_g",
-                    "sex",
-                ],
-                "condition": pd.isna,
-            }
-        ],
         encode=[
-            {"column": "island", "encoder": OneHotEncoder(sparse_output=False)},
-            {"column": "sex", "encoder": OneHotEncoder(sparse_output=False)},
-            {"column": "species", "encoder": LabelEncoder()},
+            {"column": column, "encoder": OneHotEncoder(sparse_output=False)}
+            for column in palmer_penguins.select_dtypes(
+                include=["category", "object"]
+            ).columns
         ],
         rename={"encoded_species": "y"},
     )

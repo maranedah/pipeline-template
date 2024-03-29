@@ -60,6 +60,14 @@ class ModelPruningCallback:
                 "callback": CatBoostPruningCallback,
                 "params": {"metric": "MAPE"},
             },
+            "CatBoostClassifier": {
+                "callback": CatBoostPruningCallback,
+                "params": {"metric": "AUC"},
+            },
+            "LGBMClassifier": {
+                "callback": LightGBMPruningCallback,
+                "params": {"metric": "auc"},
+            },
             "LGBMRegressor": {
                 "callback": LightGBMPruningCallback,
                 "params": {"metric": "mape"},

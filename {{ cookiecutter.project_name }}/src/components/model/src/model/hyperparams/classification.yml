@@ -1,0 +1,99 @@
+LGBMClassifier:
+  base_trials:
+    default:
+      boosting_type: "gbdt"
+      objective: "binary"
+      metric: "auc"
+      learning_rate: 0.1
+      num_leaves: 31
+      max_depth: -1 
+      n_estimators: 100
+      min_data_in_leaf: 20
+      min_sum_hessian_in_leaf: 1.e-3
+      bagging_fraction: 1.0
+      reg_alpha: 0.0
+      reg_lambda: 0.0
+      subsample_freq: 0
+      feature_fraction: 1.0
+      feature_fraction_bynode: 1.0
+      max_delta_step: 0.0
+      max_bin: 255
+    best_found:
+      boosting_type: "gbdt"
+      objective: "binary"
+      metric: "auc"
+      max_depth: 3
+      num_leaves: 31
+      learning_rate: 0.05
+      feature_fraction: 0.9
+      bagging_fraction: 0.8
+      bagging_freq: 5
+      n_estimators: 1000
+  grid:
+    boosting_type: ["gbdt", "rf"]
+    objective: ["binary"]
+    metric: ["auc"]
+    learning_rate: [1.e-5, 0.1]
+    num_leaves: [2, 64]
+    max_depth: [-1, 20]
+    n_estimators: [100, 1000]
+    min_data_in_leaf: [1, 40]
+    min_sum_hessian_in_leaf: [1.e-5, 10]
+    bagging_fraction: [0.5, 1.0]
+    reg_alpha: [0.0, 100]
+    reg_lambda: [0.0, 100]
+    subsample_freq: [0, 10]
+    feature_fraction: [0.8, 1.0]
+    feature_fraction_bynode: [0.8, 1.0]
+    max_delta_step: [0.0, 10.0]
+    max_bin: [128, 512]
+
+
+
+CatBoostClassifier:
+  base_trials:
+    default:
+      n_estimators: 100
+      nan_mode: 'Min'
+      sampling_frequency: 'PerTree'
+      leaf_estimation_method: 'Newton'
+      random_score_type: 'NormalWithModelSizeDecrease'
+      grow_policy: 'SymmetricTree'
+      penalties_coefficient: 1
+      boosting_type: 'Plain'
+      model_shrink_mode: 'Constant'
+      feature_border_type: 'GreedyLogSum'
+      l2_leaf_reg: 3
+      random_strength: 1
+      rsm: 1
+      subsample: 0.800000011920929
+      random_seed: 42
+      depth: 6
+      posterior_sampling: False
+      model_shrink_rate: 0
+      learning_rate: 0.0637660026550293
+      #score_function: 'Cosine'
+      bootstrap_type: 'MVS'
+      max_leaves: 64
+      auto_class_weights: "Balanced"
+  grid:
+    n_estimators: [200, 200]
+    learning_rate: [1.e-5, 3.e-1]
+    auto_class_weights: ["Balanced", "SqrtBalanced"]
+    grow_policy: ['SymmetricTree']
+    random_score_type: ["Gumbel", "NormalWithModelSizeDecrease"]
+    penalties_coefficient: [0.5, 2.0]
+    depth: [5, 10]
+    l2_leaf_reg: [1.e-5, 100]
+    subsample: [0.8, 1]
+    bootstrap_type: ["MVS", "Bernoulli"]
+    leaf_estimation_method: ["Newton", "Gradient"]
+    sampling_frequency: ["PerTree", "PerTreeLevel"]
+    boosting_type: ["Plain", "Ordered"]
+    model_shrink_mode: ["Constant", "Decreasing"]
+    feature_border_type: ["GreedyLogSum", "Median", "Uniform", "MinEntropy"]
+    # posterior_sampling: [true, false] # TODO: Parse booleans in tuning
+    #score_function: ["Cosine", "L2"]
+    random_strength: [0.5, 2]
+    #model_shrink_rate: [0, 0.9]
+    rsm: [0.1, 1]
