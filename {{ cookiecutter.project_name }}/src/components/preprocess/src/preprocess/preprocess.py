@@ -1,6 +1,7 @@
 import pandas as pd
 from DataProcessing import DataProcessing
-from sklearn.preprocessing import OneHotEncoder
+from sklearn.preprocessing import OneHotEncoder, StandardScaler
+    
 
 
 def run_preprocess(project_id: str, palmer_penguins_uri: str) -> list[pd.DataFrame]:

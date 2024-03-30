@@ -8,11 +8,12 @@ import pandas as pd
 from catboost import Pool
 from model.hyperparameter_tuning import HyperparameterTuning
 from model.models.Ensemble import ModelEnsemble
-from model.models.Scoring import cross_validation_score
+from model.models.Scoring import cross_validation_score, PersistentFolds
 
 logging.basicConfig(
     level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
 )
+mlflow.set_tracking_uri('http://192.168.1.200:5000')
 
 
 class ModelSelector:
@@ -38,8 +39,7 @@ class ModelSelector:
                 logging.info(f"Training model {type(model()).__name__}")
                 result = cross_validation_score(
                     estimator=model(**self.get_init_params(model)),
-                    X=X_train,
-                    y=y_train,
+                    kfolds=self.kfolds,
                     score_funcs=self.metrics,
                     n_splits=self.cv_splits,
                     fit_params=self.get_fit_params(type(model()), eval_set),
@@ -73,6 +73,7 @@ class ModelSelector:
             ).run_tuning(
                 X_train,
                 y_train,
+                self.kfolds,
                 self.get_fit_params(model, eval_set),
                 self.suggestion_trials,
                 self.timeout_in_hours,
@@ -91,36 +92,12 @@ class ModelSelector:
         ]
         return best_models
 
-    def set_data(self, X, y, eval_set):
-        # CatBoost
-        X_train = Pool(data=X, label=y)
-        X_valid = Pool(data=eval_set[0], label=eval_set[1])
-
-        self.catboost_data = {"train": (X_train, None), "valid": (X_valid, None)}
-
-        # LGBM
-        train_data = lgb.Dataset(X, label=y)
-        valid_data = lgb.Dataset(eval_set[0], label=eval_set[1])
-        self.lgbm_data = {
-            "train": (train_data.data, train_data.label),
-            "valid": (valid_data.data, valid_data.label),
-        }
-
-        # SKLearn
-        self.sklearn_data = {"train": (X, y), "valid": eval_set}
-
-    def get_data(self, model_name, set_):
-        if "Catboost" in model_name:
-            return self.catboost_data[set_]
-        elif "LGBM" in model_name:
-            return self.lgbm_data[set_]
-        else:
-            return self.sklearn_data[set_]
-
     def fit(self, X_train, y_train, eval_set):
-        self.set_data(X_train, y_train, eval_set)
-        df_models_score = self.score_models(X_train, y_train, eval_set)
-        best_models = self.get_top_k_models(df_models_score, top_k=3)
+        from lightgbm import LGBMClassifier
+        self.kfolds = PersistentFolds(X_train, y_train, n_splits=5)
+        #df_models_score = self.score_models(X_train, y_train, eval_set)
+        #best_models = self.get_top_k_models(df_models_score, top_k=3)
+        best_models = [LGBMClassifier]
         top_models_score, studies = self.best_models_hparams_tuning(
             X_train, y_train, best_models, eval_set
         )

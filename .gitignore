@@ -167,3 +167,7 @@ cython_debug/
 **/*.csv
 **/*.xlsx
 **/*.npy
+**/*.npz
+
+# venv
+template/

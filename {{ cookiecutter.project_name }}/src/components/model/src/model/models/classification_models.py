@@ -27,17 +27,17 @@ logging.basicConfig(
 class ClassificationModels(ModelSelector):
     def __init__(self):
         self.models = [
-            LogisticRegression,
-            DecisionTreeClassifier,
-            RandomForestClassifier,
-            GradientBoostingClassifier,
-            SVC(probability=True),
-            KNeighborsClassifier,
-            GaussianNB,
-            MLPClassifier,
-            XGBClassifier,
+            #LogisticRegression,
+            #DecisionTreeClassifier,
+            #RandomForestClassifier,
+            #GradientBoostingClassifier,
+            #SVC(probability=True),
+            #KNeighborsClassifier,
+            #GaussianNB,
+            #MLPClassifier,
+            #XGBClassifier,
             LGBMClassifier,
-            CatBoostClassifier,
+            #CatBoostClassifier,
         ]
         self.early_stopping_rounds = 10
         self.metrics = [roc_auc_score, gini_score]
@@ -103,24 +103,63 @@ class ClassificationModels(ModelSelector):
 
 
 if __name__ == "__main__":
+    import optuna
+    optuna.create_study(
+        direction="maximize",
+        study_name="asdasd",
+        storage=optuna.storages.RDBStorage("postgresql://myuser:mypassword@192.168.1.200:5433/optuna"),
+        
+        #storage=f"sqlite:///{self.model_name}.db",
+        load_if_exists=True,
+        pruner=optuna.pruners.MedianPruner(
+            n_startup_trials=0, n_warmup_steps=10, n_min_trials=10
+        ),
+        sampler=optuna.samplers.TPESampler(
+            n_startup_trials=100, multivariate=True, seed=42
+        ),
+    )
+
+    breakpoint()
+    logging.info("Started program")
     X_train = pd.read_parquet("processed_X_train.parquet")
     y_train = pd.read_parquet("y_train.parquet")
     X_valid = pd.read_parquet("processed_X_valid.parquet")
     y_valid = pd.read_parquet("y_valid.parquet")
-    X_test = pd.read_parquet("processed_X_test.parquet")
-    y_test = pd.read_parquet("y_test.parquet")
+    
 
-    for df in X_train, X_valid, X_test:
+    float64_columns = X_train.select_dtypes(include='float64').columns.tolist()
+    for df in X_train, X_valid:
         for column in df.columns:
             min_value = df[column].min()
-            df[column].fillna(min_value, inplace=True)
+            df[column].fillna(min_value-100000, inplace=True)
+
+    
+    from sklearn.preprocessing import StandardScaler
+    import numpy as np
+    scaler = StandardScaler()
+    bool_columns = X_train.select_dtypes(include='bool').columns.tolist()
+
+    for df in X_train, X_valid:
+        df[float64_columns] = scaler.fit_transform(df[float64_columns])
+        for column in float64_columns:
+            df[column] = df[column].astype("float16")
+        for column in bool_columns:
+            df[column] = df[column].astype(pd.SparseDtype(bool, fill_value=False))
+        
 
     model = ClassificationModels()
-    model.fit(X_train, y_train, eval_set=(X_valid, y_valid))
+    model.fit(X_train, y_train, eval_set=(X_valid.values, y_valid.values))
 
     base_train = pd.read_parquet("base_train.parquet")
     base_valid = pd.read_parquet("base_valid.parquet")
     base_test = pd.read_parquet("base_test.parquet")
+
+    
+    X_test = pd.read_parquet("processed_X_test.parquet")
+    y_test = pd.read_parquet("y_test.parquet")
+    X_test[float64_columns] = scaler.fit_transform(X_test[float64_columns])
+    for column in float64_columns:
+        X_test[column] = X_test[column].astype("float16")
 
     for base, X in [(base_train, X_train), (base_valid, X_valid), (base_test, X_test)]:
         y_pred = model.predict_ensemble(X)

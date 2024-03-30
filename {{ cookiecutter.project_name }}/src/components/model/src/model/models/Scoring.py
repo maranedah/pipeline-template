@@ -1,6 +1,7 @@
 import warnings
 
 import numpy as np
+import os
 import pandas as pd
 from sklearn.metrics import roc_auc_score
 from sklearn.model_selection import StratifiedKFold
@@ -70,17 +71,51 @@ def temporal_validation_score(
     result = stability(scores)
     return result
 
+def load_index(df, index):
+    return df.values[index]
+
+def parallel_data_load(X, y, train_index, test_index):
+    from multiprocessing import Pool
+    arguments_list = [(X, train_index), (y, train_index), (X, test_index), (y, test_index)]
+    num_processes = 4  
+    with Pool(processes=num_processes) as pool:
+        results = pool.starmap(load_index, arguments_list)
+    return results
+
+
+class PersistentFolds:
+    def __init__(self, X, y, n_splits):
+        self.n_splits = n_splits
+        self.kfolds = StratifiedKFold(n_splits=n_splits, shuffle=True, random_state=42)
+        #self.persist_kfolds(X, y)
+        
+    def persist_kfolds(self, X, y):
+        for i, (train_index, test_index) in enumerate(self.kfolds.split(X,y)):
+            X_train, y_train, X_test, y_test = parallel_data_load(X,y,train_index,test_index)
+            np.savez_compressed(f"fold_{i}.npz", X_train=X_train, y_train=y_train, X_test=X_test, y_test=y_test)
+
+    def load_fold(self,i):
+        loaded = np.load(f"fold_{i}.npz")
+        X_train = loaded["X_train"]
+        y_train = loaded["y_train"]
+        X_test = loaded["X_test"]
+        y_test = loaded["y_test"]
+        return X_train, y_train, X_test, y_test
+
 
 def cross_validation_score(
-    estimator, X, y, fit_params, score_funcs, n_splits, random_state
+    estimator, kfolds, fit_params, score_funcs, n_splits, random_state
 ) -> dict:
-    kf = StratifiedKFold(n_splits=n_splits, shuffle=True, random_state=random_state)
+    #kf = StratifiedKFold(n_splits=n_splits, shuffle=True, random_state=random_state)
     # kf = KFold(n_splits=n_splits, shuffle=True, random_state=random_state)
     result = []
-    for train_index, test_index in kf.split(X, y):
+    import time
+    for i in range(kfolds.n_splits):
         print("training fold")
-        X_train, y_train = X.iloc[train_index], y.iloc[train_index]
-        X_test, y_test = X.iloc[test_index], y.iloc[test_index]
+        start = time.time()
+        X_train, y_train, X_test, y_test = kfolds.load_fold(i)
+        end = time.time()
+        print(end-start)
         y_hat = estimator.fit(X_train, y_train, **fit_params).predict_proba(X_test)[
             :, 1
         ]
