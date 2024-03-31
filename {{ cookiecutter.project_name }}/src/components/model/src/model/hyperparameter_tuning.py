@@ -63,9 +63,9 @@ class HyperparameterTuning:
         self.study = optuna.create_study(
             direction="maximize",
             study_name=self.model_name,
-            storage=optuna.storages.RDBStorage("postgresql://myuser:mypassword@192.168.1.200:5433/optuna"),
-            
-            #storage=f"sqlite:///{self.model_name}.db",
+            storage=optuna.storages.RDBStorage(
+                "postgresql://myuser:mypassword@192.168.1.200:5433/optuna"
+            ),
             load_if_exists=True,
             pruner=optuna.pruners.MedianPruner(
                 n_startup_trials=0, n_warmup_steps=10, n_min_trials=10
@@ -74,7 +74,6 @@ class HyperparameterTuning:
                 n_startup_trials=100, multivariate=True, seed=42
             ),
         )
-        breakpoint()
 
         hyperparams_path = Path(__file__).parent / "hyperparams" / "classification.yml"
         experiments = yaml.safe_load(open(hyperparams_path, "r"))[self.model_name]
@@ -160,7 +159,6 @@ class HyperparameterTuning:
         # Catboost Pruning needs to be manually called
         if "CatBoost" in self.model_name:
             pruning_callback.check_pruned()
-
 
     def score_model(self, kfolds, suggested_params, fit_params):
         # Score model
