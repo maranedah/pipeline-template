@@ -18,4 +18,5 @@ def run_terraform_apply():
 
 
 if __name__ == "__main__":
-    run_terraform_apply()
+    pass
+    # run_terraform_apply()

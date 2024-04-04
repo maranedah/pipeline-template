@@ -1,19 +1,17 @@
 import logging
 from datetime import datetime, timezone
 
-import lightgbm as lgb
 import mlflow
 import numpy as np
 import pandas as pd
-from catboost import Pool
 from model.hyperparameter_tuning import HyperparameterTuning
 from model.models.Ensemble import ModelEnsemble
-from model.models.Scoring import cross_validation_score, PersistentFolds
+from model.models.Scoring import cross_validation_score
 
 logging.basicConfig(
     level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
 )
-mlflow.set_tracking_uri('http://192.168.1.200:5000')
+mlflow.set_tracking_uri("http://192.168.1.200:5000")
 
 
 class ModelSelector:
@@ -39,7 +37,8 @@ class ModelSelector:
                 logging.info(f"Training model {type(model()).__name__}")
                 result = cross_validation_score(
                     estimator=model(**self.get_init_params(model)),
-                    kfolds=self.kfolds,
+                    X=X_train,
+                    y=y_train,
                     score_funcs=self.metrics,
                     n_splits=self.cv_splits,
                     fit_params=self.get_fit_params(type(model()), eval_set),
@@ -73,7 +72,7 @@ class ModelSelector:
             ).run_tuning(
                 X_train,
                 y_train,
-                self.kfolds,
+                None,
                 self.get_fit_params(model, eval_set),
                 self.suggestion_trials,
                 self.timeout_in_hours,
@@ -94,9 +93,9 @@ class ModelSelector:
 
     def fit(self, X_train, y_train, eval_set):
         from lightgbm import LGBMClassifier
-        self.kfolds = PersistentFolds(X_train, y_train, n_splits=5)
-        #df_models_score = self.score_models(X_train, y_train, eval_set)
-        #best_models = self.get_top_k_models(df_models_score, top_k=3)
+
+        # df_models_score = self.score_models(X_train, y_train, eval_set)
+        # best_models = self.get_top_k_models(df_models_score, top_k=3)
         best_models = [LGBMClassifier]
         top_models_score, studies = self.best_models_hparams_tuning(
             X_train, y_train, best_models, eval_set

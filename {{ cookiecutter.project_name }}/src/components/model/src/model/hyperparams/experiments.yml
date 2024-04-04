@@ -47,7 +47,7 @@ LGBMRegressor:
     feature_fraction: [0.8, 1.0]
     feature_fraction_bynode: [0.8, 1.0]
     max_delta_step: [0.0, 10.0]
-    max_bin: [128, 512]
+    max_bin: [256, 256]
   
 
 XGBRegressor:

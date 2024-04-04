@@ -62,7 +62,7 @@ class HyperparameterTuning:
 
         self.study = optuna.create_study(
             direction="maximize",
-            study_name=self.model_name,
+            study_name="pca_categorical",  # self.model_name,
             storage=optuna.storages.RDBStorage(
                 "postgresql://myuser:mypassword@192.168.1.200:5433/optuna"
             ),
@@ -160,11 +160,12 @@ class HyperparameterTuning:
         if "CatBoost" in self.model_name:
             pruning_callback.check_pruned()
 
-    def score_model(self, kfolds, suggested_params, fit_params):
+    def score_model(self, X, y, suggested_params, fit_params):
         # Score model
         result = cross_validation_score(
             estimator=self.model(**suggested_params, **self.model_init_params),
-            kfolds=kfolds,
+            X=X,
+            y=y,
             score_funcs=[self.metric],
             n_splits=5,
             fit_params=fit_params,
@@ -199,11 +200,9 @@ class HyperparameterTuning:
 
         # Check if we need to prune the model
         self.check_for_pruning(trial, X_train, y_train, suggested_params, fit_params)
-        del X_train
-        del y_train
 
         # Score model
-        score = self.score_model(kfolds, suggested_params, fit_params)
+        score = self.score_model(X_train, y_train, suggested_params, fit_params)
 
         return score
 
