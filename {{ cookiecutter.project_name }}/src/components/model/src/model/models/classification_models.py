@@ -3,7 +3,7 @@ import logging
 import lightgbm as lgb
 import pandas as pd
 import xgboost as xgb
-from lightgbm import LGBMClassifier
+from catboost import CatBoostClassifier
 from model.models.ModelSelector import ModelSelector
 from model.models.Scoring import (
     gini_score,
@@ -27,8 +27,8 @@ class ClassificationModels(ModelSelector):
             # GaussianNB,
             # MLPClassifier,
             # XGBClassifier,
-            LGBMClassifier,
-            # CatBoostClassifier,
+            # LGBMClassifier,
+            CatBoostClassifier,
         ]
         self.early_stopping_rounds = 10
         self.metrics = [roc_auc_score, gini_score]
@@ -80,7 +80,7 @@ class ClassificationModels(ModelSelector):
                 "random_seed": 42,
                 "eval_metric": self.eval_metric.upper(),
             },
-            "XGBRegressor": {
+            "XGBClassifier": {
                 "verbosity": 0,
                 "random_seed": 42,
                 "verbose_eval": False,
@@ -97,10 +97,40 @@ if __name__ == "__main__":
     import numpy as np
 
     logging.info("Started program")
-    X_train = np.load("X_train.npy")
-    y_train = np.ravel(pd.read_parquet("y_train.parquet").values)
-    X_valid = np.load("X_valid.npy")
-    y_valid = np.ravel(pd.read_parquet("y_valid.parquet").values)
+    X_train = np.load("processed/X_train.npy")
+    y_train = np.load("processed/y_train.npy")
+    X_valid = np.load("processed/X_valid.npy")
+    y_valid = np.load("processed/y_valid.npy")
 
     model = ClassificationModels()
     model.fit(X_train, y_train, eval_set=(X_valid, y_valid))
+
+    base_train = pd.read_parquet("processed/base_train.parquet")
+    base_valid = pd.read_parquet("processed/base_valid.parquet")
+    base_test = pd.read_parquet("processed/base_test.parquet")
+    X_test = np.load("processed/X_test.npy")
+    y_test = np.load("processed/y_test.npy")
+
+    for base, X in [(base_train, X_train), (base_valid, X_valid), (base_test, X_test)]:
+        y_pred = model.predict_ensemble(X)
+        base["score"] = y_pred
+
+    print(
+        f'The AUC score on the train set is: {roc_auc_score(base_train["target"], base_train["score"])}'  # noqa: E501
+    )
+    print(
+        f'The AUC score on the valid set is: {roc_auc_score(base_valid["target"], base_valid["score"])}'  # noqa: E501
+    )
+    print(
+        f'The AUC score on the test set is: {roc_auc_score(base_test["target"], base_test["score"])}'  # noqa: E501
+    )
+
+    from model.models.Scoring import gini_stability
+
+    stability_score_train = gini_stability(base_train)
+    stability_score_valid = gini_stability(base_valid)
+    stability_score_test = gini_stability(base_test)
+
+    print(f"The stability score on the train set is: {stability_score_train}")
+    print(f"The stability score on the valid set is: {stability_score_valid}")
+    print(f"The stability score on the test set is: {stability_score_test}")

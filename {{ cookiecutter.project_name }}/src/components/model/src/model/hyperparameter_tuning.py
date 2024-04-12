@@ -62,7 +62,7 @@ class HyperparameterTuning:
 
         self.study = optuna.create_study(
             direction="maximize",
-            study_name="pca_categorical",  # self.model_name,
+            study_name=f"{self.model_name}_new_data",  # self.model_name,
             storage=optuna.storages.RDBStorage(
                 "postgresql://myuser:mypassword@192.168.1.200:5433/optuna"
             ),

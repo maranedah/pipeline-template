@@ -41,6 +41,7 @@ class DataProcessing:
             logging.info("Replacing data...")
             for setting in tqdm(replace_data):
                 self.replace(**setting)
+
         if encode:
             logging.info("Encoding columns...")
             encode = [
@@ -75,9 +76,12 @@ class DataProcessing:
 
     def remove_columns_where(self, condition: callable, ignore_columns: list[str]):
         columns = [x for x in self.df.columns if x not in ignore_columns]
+        i = 0
         for col in columns:
             if condition(self.df, col):
                 self.df = self.df.drop(columns=[col])
+                i += 1
+        logging.info(f"Removed {i} columns")
 
     def replace(self, columns: list[str], condition: callable, new_value: any):
         self.df[columns] = self.df[columns].map(

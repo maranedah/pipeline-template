@@ -46,7 +46,7 @@ LGBMClassifier:
     feature_fraction: [0.8, 1.0]
     feature_fraction_bynode: [0.8, 1.0]
     max_delta_step: [0.0, 10.0]
-    max_bin: [256, 256]
+    max_bin: [255, 255]
 
 
 
@@ -97,3 +97,26 @@ CatBoostClassifier:
     random_strength: [0.5, 2]
     #model_shrink_rate: [0, 0.9]
     rsm: [0.1, 1]
+
+XGBClassifier:
+  base_trials:
+    default:
+      n_estimators: 1000
+      learning_rate: 0.299
+      max_depth: 6
+      reg_alpha: 0
+      reg_lambda: 1
+      subsample: 1
+  grid:
+    n_estimators: [500,2000]
+    learning_rate: [1.e-5, 0.3]
+    max_depth: [1, 16]
+    reg_alpha: [1.e-5, 100]
+    reg_lambda: [1.e-5, 100]
+    subsample: [0.8, 1]
+    colsample_bytree: [0.1, 1]
+    colsample_bylevel: [0.1, 1] 
+    colsample_bynode: [0.1, 1]
+    gamma: [0.01, 1.0]
+    min_child_weight: [0.01, 10.0]
+    

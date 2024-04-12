@@ -1,27 +1,12 @@
-import gc
+import os
 from glob import glob
 from pathlib import Path
 
 import pandas as pd
 import polars as pl
-from DataProcessing import DataProcessing
 from MemoryReduction import MemoryReduction
-from sklearn.preprocessing import OneHotEncoder
-
-
-def set_table_dtypes(df):
-    for col in df.columns:
-        if col in ["case_id", "WEEK_NUM", "num_group1", "num_group2"]:
-            df = df.with_columns(pl.col(col).cast(pl.Int64))
-        elif col in ["date_decision"]:
-            df = df.with_columns(pl.col(col).cast(pl.Date))
-        elif col[-1] in ("P", "A"):
-            df = df.with_columns(pl.col(col).cast(pl.Float64))
-        elif col[-1] in ("M",):
-            df = df.with_columns(pl.col(col).cast(pl.String))
-        elif col[-1] in ("D",):
-            df = df.with_columns(pl.col(col).cast(pl.Date))
-    return df
+from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import StandardScaler
 
 
 def handle_dates(df):
@@ -34,40 +19,30 @@ def handle_dates(df):
 
 
 class Aggregator:
-    def pandas_get_aggregations(df):
-        numeric_columns = df.select_dtypes(include="number").columns
-        numeric_funcs = ["mean", "max", "min", "first", "last"]
-        non_numeric_funcs = ["max", "min", "first", "last"]
-        columns = [
+    def get_exprs(df, ignore_columns=[]):
+        columns = [col for col in df.columns if col not in ignore_columns]
+        numerical_columns = [
             col
-            for col in df.columns
-            if col not in ["case_id", "target", "date_decision", "MONTH", "WEEK_NUM"]
+            for col, dtype in zip(df[columns].columns, df[columns].dtypes)
+            if "Float" in str(dtype) or "Int" in str(dtype)
         ]
-        for col in columns:
-            funcs = numeric_funcs if col in numeric_columns else non_numeric_funcs
-            df = MemoryReduction().type_optimization(df)
-            df_aggregations = (
-                df[["case_id", col]].groupby("case_id").agg(funcs).reset_index()
-            )
-            df_aggregations.columns = [
-                f"{col}_{func}" if col != "case_id" else col
-                for col, func in df_aggregations.columns
-            ]
-            df_aggregations = MemoryReduction().type_optimization(df_aggregations)
-            df = df.merge(df_aggregations, how="left", on="case_id")
-        return df
+        date_columns = [
+            col
+            for col, dtype in zip(df[columns].columns, df[columns].dtypes)
+            if "Date" in str(dtype)
+        ]
 
-    def polars_get_aggregations(df):
-        expr_mean = [
-            pl.mean(col).alias(f"mean_{col}")
-            for col in df.columns
-            if "Int" in col or "Float" in col
-        ]
-        expr_min = [pl.min(col).alias(f"min_{col}") for col in df.columns]
-        expr_max = [pl.max(col).alias(f"max_{col}") for col in df.columns]
-        expr_first = [pl.first(col).alias(f"first_{col}") for col in df.columns]
-        expr_last = [pl.last(col).alias(f"last_{col}") for col in df.columns]
-        return expr_mean + expr_min + expr_max + expr_first + expr_last
+        # Length of each group
+        expr_len = [pl.len()]
+
+        # Numerical columns
+        expr_mean = [pl.mean(col).alias(f"mean_{col}") for col in numerical_columns]
+        expr_std = [pl.std(col).alias(f"std_{col}") for col in numerical_columns]
+
+        # Date columns
+        expr_min = [pl.min(col).alias(f"min_{col}") for col in date_columns]
+        expr_max = [pl.max(col).alias(f"max_{col}") for col in date_columns]
+        return expr_len + expr_mean + expr_std + expr_min + expr_max
 
 
 def get_paths(set_):
@@ -75,12 +50,10 @@ def get_paths(set_):
         "train": Path(__file__).parent / "parquet_files" / "train",
         "test": Path(__file__).parent / "parquet_files" / "train",
     }
-    df_base = f"{set_}_base.parquet"
-    depth_0 = [
+    paths = [
+        f"{set_}_base.parquet",
         f"{set_}_static_cb_0.parquet",
         f"{set_}_static_0_*.parquet",
-    ]
-    depth_1 = [
         f"{set_}_applprev_1_*.parquet",
         f"{set_}_tax_registry_a_1.parquet",
         f"{set_}_tax_registry_b_1.parquet",
@@ -91,111 +64,227 @@ def get_paths(set_):
         f"{set_}_person_1.parquet",
         f"{set_}_deposit_1.parquet",
         f"{set_}_debitcard_1.parquet",
-    ]
-    depth_2 = [
         f"{set_}_credit_bureau_b_2.parquet",
         f"{set_}_credit_bureau_a_2_*.parquet",
         f"{set_}_applprev_2.parquet",
         f"{set_}_person_2.parquet",
     ]
-    return {
-        "df_base": dir_[set_] / df_base,
-        "depth_0": [dir_[set_] / file for file in depth_0],
-        "depth_1": [dir_[set_] / file for file in depth_1],
-        "depth_2": [dir_[set_] / file for file in depth_2],
-    }
+    return [dir_[set_] / path for path in paths]
 
 
-def read_file(path, depth=None):
-    print(path)
-    df = pl.read_parquet(path)
-    df = set_table_dtypes(df)
-    df = MemoryReduction().type_optimization(df)
-    if depth in [1, 2]:
-        df = df.group_by("case_id").agg(Aggregator.polars_get_aggregations(df))
-        df = MemoryReduction().type_optimization(df)
-    return df
-
-
-def read_files(regex_path, depth=None):
-    chunks = []
-
-    for path in glob(str(regex_path)):
-        df = read_file(path, depth)
-        chunks.append(df)
-
-    df = pl.concat(chunks, how="vertical_relaxed")
-    df = df.unique(subset=["case_id"])
-    return df
-
-
-def read_data(path, depth):
-    if "*" in str(path):
-        df = read_files(path, depth)
+def read_parquet(filepath):
+    if "*" not in str(filepath):
+        df = process_data(pl.read_parquet(filepath))
     else:
-        df = read_file(path, depth)
+        paths = glob(str(filepath))
+        df = process_data(pl.read_parquet(paths[0]))
+        print(df.shape)
+        for path in paths[1:]:
+            new_df = process_data(pl.read_parquet(path))
+            print(new_df.shape)
+            df = pl.concat((df, new_df), how="diagonal")
     return df
 
 
-def merge_files(df_base, depth_0, depth_1, depth_2):
-    df_base = read_data(df_base, depth=0)
-    df_base = df_base.with_columns(
-        month_decision=pl.col("date_decision").dt.month(),
-        weekday_decision=pl.col("date_decision").dt.weekday(),
-    )
-    depth_df = df_base
-    i = 0
-    for depth, depth_path_list in zip([2, 1, 0], [depth_2, depth_1, depth_0]):
-        for path in depth_path_list:
-            df = read_data(path, depth=depth)
-            print(depth_df.shape)
-            depth_df = depth_df.join(df, how="left", on="case_id", suffix=f"_{i}")
-            depth_df = MemoryReduction().filter_cols(depth_df)
-            del df
-            gc.collect()
-            i += 1
-    depth_df = handle_dates(depth_df)
-    return depth_df
+def set_dates(df):
+    pattern = r"\d{4}[-/]\d{2}[-/]\d{2}|\d{2}[-/]\d{2}[-/]\d{4}"
+    for col in df.columns:
+        if df[col].dtype == pl.String and df[col].str.contains(pattern).all():
+            df = df.with_columns(pl.col(col).cast(pl.Date))
+    return df
+
+
+def set_categorical(df):
+    str_columns = [
+        col for col, dtype in zip(df.columns, df.dtypes) if "String" in str(dtype)
+    ]
+    for col in str_columns:
+        df = df.with_columns(pl.col(col).cast(pl.Categorical))
+    return df
+
+
+def too_many_nulls(df, col, threshold=0.8):
+    return df[col].is_null().mean() > threshold
+
+
+def only_one_value(df, col):
+    return df[col].n_unique() == 1
+
+
+def too_many_categories(df, col, threshold=10):
+    return df[col].dtype == pl.Categorical and df[col].n_unique() > threshold
+
+
+def filter_cols(df):
+    columns_to_filter = []
+    for col in df.columns:
+        should_be_filtered = (
+            too_many_nulls(df, col)
+            or only_one_value(df, col)
+            or too_many_categories(df, col)
+        )
+        if should_be_filtered:
+            columns_to_filter.append(col)
+    for col in columns_to_filter:
+        df = df.drop(col)
+    print(len(columns_to_filter))
+    return df
+
+
+def get_encodings(df):
+    categorical_columns = [
+        col for col, dtype in zip(df.columns, df.dtypes) if dtype == pl.Categorical
+    ]
+    if categorical_columns:
+        encoding = df[categorical_columns].to_dummies()
+        df = df.drop(categorical_columns)
+        df = df.hstack(encoding)
+    return df
+
+
+# Function to group columns by correlation
+def group_columns_by_correlation(df, threshold=0.9):
+    print("shape1", df.shape)
+    correlation_matrix = df.corr()
+    groups = []
+    remaining_cols = list(df.columns)
+    while remaining_cols:
+        col = remaining_cols.pop(0)
+        group = [col]
+        correlated_cols = [col]
+        for c in remaining_cols:
+            if correlation_matrix.loc[col, c] >= threshold:
+                group.append(c)
+                correlated_cols.append(c)
+        groups.append(group)
+        remaining_cols = [c for c in remaining_cols if c not in correlated_cols]
+    # Filter groups with length = 1
+    groups = [group for group in groups if len(group) > 1]
+
+    for group in groups:
+        n_nulls = {col: df[col].isna().sum() for col in group}
+        ordered_nulls_cols = list(
+            dict(sorted(n_nulls.items(), key=lambda item: item[1])).keys()
+        )
+        df = df.drop(columns=ordered_nulls_cols[1:])
+    print("shape2", df.shape)
+    return list(df.columns)
+
+
+def aggregate_rows(df):
+    groups = df.group_by("case_id")
+    # If n_groups == n_data, skip, nothing to aggregate
+    if df.shape[0] == groups.len().shape[0]:
+        return df
+    else:
+        # Aggregate n_count, mean, min, max, etc
+        df = df.group_by("case_id").agg(
+            Aggregator.get_exprs(
+                df, ignore_columns=["case_id", "num_group1", "num_group2"]
+            )
+        )
+        return df
+
+
+def process_data(df):
+    return aggregate_rows(get_encodings(filter_cols(set_categorical(set_dates(df)))))
+
+
+def date_to_number(df):
+    date_columns = [
+        col
+        for col, dtype in zip(df.columns, df.dtypes)
+        if "Date" in str(dtype) and "date_decision" not in col
+    ]
+    for col in date_columns:
+        df = df.with_columns(pl.col(col) - pl.col("date_decision"))
+        df = df.with_columns(pl.col(col).dt.total_days())
+    df = df.drop("date_decision", "date_decision_2", "MONTH")
+    return df
+
+
+def scale_data(df):
+    def my_scaler(s: pl.Series) -> pl.Series:
+        scaler = StandardScaler()
+        return pl.Series(scaler.fit_transform(s.to_numpy().reshape(-1, 1)).flatten())
+
+    columns = [
+        col for col in df.columns if col not in ["case_id", "WEEK_NUM", "target"]
+    ]
+    for col in columns:
+        df = df.with_columns(pl.col(col).map_batches(my_scaler))
+    return df
 
 
 def run_preprocess(project_id: str, palmer_penguins_uri: str) -> list[pd.DataFrame]:
-    # palmer_penguins = pd.read_parquet(palmer_penguins_uri)
+    for path in get_paths("train"):
+        print(path)
+        df = read_parquet(path)
+        df = MemoryReduction().type_optimization(df)
+        if "base" in str(path):
+            df.write_parquet(f"data/{''.join(path.stem.split('*'))}.parquet")
+            continue
+        columns = group_columns_by_correlation(df.to_pandas())
+        df[columns].write_parquet(f"data/{''.join(path.stem.split('*'))}.parquet")
 
-    # df = merge_files(**get_paths("train"))
-    # df = df.to_pandas()
-    # df = MemoryReduction().type_optimization(df)
-    df = pd.read_parquet("processed_df_train.parquet")
-    df = df.drop(columns=["date_decision", "MONTH"])
-    my_data = DataProcessing(
-        df=df,
-        remove_columns_where=[
-            {
-                "condition": lambda df, col: df[col].isna().mean() > 0.8,
-                "ignore_columns": ["target", "case_id", "WEEK_NUM"],
-            },
-            {
-                "condition": lambda df, col: df[col].nunique() == 1,
-                "ignore_columns": ["target", "case_id", "WEEK_NUM"],
-            },
-            # {
-            #    "condition": lambda df, col: df[col].nunique() > 200,
-            #    "ignore_columns": df.select_dtypes(include='number').columns.tolist()
-            # }
-        ],
-        # replace_data=[
-        #    {
-        #        "columns": [],
-        #        "condition": lambda df, col: col[-1] in ("D",),
-        #        "new_value": pd.to_datetime()
-        #    }
-        # ],
-        encode=[
-            {"column": column, "encoder": OneHotEncoder(sparse_output=False)}
-            for column in df.select_dtypes(include=["category", "object"]).columns
-        ],
-        # rename={"encoded_species": "y"},
+    df = pl.read_parquet("data/train_base.parquet")
+    for i, file in enumerate(
+        [f for f in os.listdir("data/") if "base" not in f or "consolidated" not in f]
+    ):
+        print(file)
+        new_df = pl.read_parquet(f"data/{file}")
+        df = df.join(new_df, how="left", on="case_id", suffix=f"_{i}")
+    df = filter_cols(df)
+    df = date_to_number(df)
+    df = MemoryReduction().type_optimization(df)
+    df = df.fill_null(0)
+    df = scale_data(df)
+    columns = group_columns_by_correlation(df.to_pandas())
+    df = MemoryReduction().type_optimization(df[columns].to_pandas())
+    df[columns].to_parquet("data/consolidated_dataset.parquet")
+
+    df = pl.read_parquet("data/consolidated_dataset.parquet")
+    case_ids = df["case_id"].unique().shuffle(seed=1).to_frame()
+    case_ids_train, case_ids_test = train_test_split(
+        case_ids, train_size=0.6, random_state=1
     )
-    return my_data.df, my_data.encoders
+    case_ids_valid, case_ids_test = train_test_split(
+        case_ids_test, train_size=0.5, random_state=1
+    )
+
+    cols_pred = []
+    for col in df.columns:
+        if col[-1].isupper() and col[:-1].islower():
+            cols_pred.append(col)
+
+    print(cols_pred)
+
+    def from_polars_to_pandas(case_ids: pl.DataFrame) -> pl.DataFrame:
+        return (
+            df.filter(pl.col("case_id").is_in(case_ids))[
+                ["case_id", "WEEK_NUM", "target"]
+            ].to_pandas(),
+            df.filter(pl.col("case_id").is_in(case_ids))[cols_pred].to_pandas(),
+            df.filter(pl.col("case_id").is_in(case_ids))["target"].to_pandas(),
+        )
+
+    base_train, X_train, y_train = from_polars_to_pandas(case_ids_train)
+    base_valid, X_valid, y_valid = from_polars_to_pandas(case_ids_valid)
+    base_test, X_test, y_test = from_polars_to_pandas(case_ids_test)
+
+    base_train.to_parquet("processed/base_train.parquet")
+    base_valid.to_parquet("processed/base_valid.parquet")
+    base_test.to_parquet("processed/base_test.parquet")
+
+    import numpy as np
+
+    np.save("processed/X_train.npy", X_train.values.astype(np.float16))
+    np.save("processed/X_valid.npy", X_valid.values.astype(np.float16))
+    np.save("processed/X_test.npy", X_test.values.astype(np.float16))
+
+    np.save("processed/y_train.npy", y_train.values.astype(np.float16))
+    np.save("processed/y_valid.npy", y_valid.values.astype(np.float16))
+    np.save("processed/y_test.npy", y_test.values.astype(np.float16))
 
 
 if __name__ == "__main__":

@@ -92,11 +92,11 @@ class ModelSelector:
         return best_models
 
     def fit(self, X_train, y_train, eval_set):
-        from lightgbm import LGBMClassifier
+        from xgboost import XGBClassifier
 
         # df_models_score = self.score_models(X_train, y_train, eval_set)
         # best_models = self.get_top_k_models(df_models_score, top_k=3)
-        best_models = [LGBMClassifier]
+        best_models = [XGBClassifier]
         top_models_score, studies = self.best_models_hparams_tuning(
             X_train, y_train, best_models, eval_set
         )

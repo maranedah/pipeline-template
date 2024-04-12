@@ -76,6 +76,10 @@ class ModelPruningCallback:
                 "callback": XGBoostPruningCallback,
                 "params": {"observation_key": "validation_0-mape"},
             },
+            "XGBClassifier": {
+                "callback": XGBoostPruningCallback,
+                "params": {"observation_key": "validation_0-auc"},
+            },
         }
         callback = pruning_callbacks[model_name]["callback"]
         params = pruning_callbacks[model_name]["params"]

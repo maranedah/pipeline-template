@@ -18,7 +18,7 @@ class MemoryReduction:
 
     def pandas_optimize_int_dtype(self, df, col):
         c_min, c_max = df[col].min(), df[col].max()
-        if c_min > 0:
+        if c_min is not None and c_min >= 0:
             if c_max < np.iinfo(np.uint8).max:
                 return df[col].astype(np.uint8)
             elif c_max < np.iinfo(np.uint16).max:
@@ -51,58 +51,59 @@ class MemoryReduction:
             df[col].astype("category")
         return df
 
-    def polars_type_optimization(self, df):
-        for col in df.columns:
-            col_type = df[col].dtype
-            non_numeric_columns = ["Date", "Null"]
-            if str(col_type) in non_numeric_columns or col == "case_id":
-                continue
+    def polars_optimize_int_dtype(self, df, col):
+        c_min, c_max = df[col].min(), df[col].max()
 
-            if str(col_type) == "Boolean":
-                df = df.with_columns(pl.col(col).cast(pl.Int8))
-                continue
-
-            if str(col_type) == "String":
-                df = df.with_columns(pl.col(col).cast(pl.Categorical))
-                continue
-
-            if "Int" in str(col_type) or "Float" in str(col_type):
-                c_min, c_max = df[col].min(), df[col].max()
-                if c_min is None:
-                    continue
-                if "Int" in str(col_type) or df[col].eq(df[col].round()).all():
-                    if c_min > np.iinfo(np.int8).min and c_max < np.iinfo(np.int8).max:
-                        df = df.with_columns(pl.col(col).cast(pl.Int8))
-                    elif (
-                        c_min > np.iinfo(np.int16).min
-                        and c_max < np.iinfo(np.int16).max
-                    ):
-                        df = df.with_columns(pl.col(col).cast(pl.Int16))
-                    elif (
-                        c_min > np.iinfo(np.int32).min
-                        and c_max < np.iinfo(np.int32).max
-                    ):
-                        df = df.with_columns(pl.col(col).cast(pl.Int32))
-                    elif (
-                        c_min > np.iinfo(np.int64).min
-                        and c_max < np.iinfo(np.int64).max
-                    ):
-                        df = df.with_columns(pl.col(col).cast(pl.Int64))
-                else:
-                    if (
-                        c_min > np.finfo(np.float16).min
-                        and c_max < np.finfo(np.float16).max
-                    ):
-                        df = df.with_columns(pl.col(col).cast(pl.Float32))
-                    elif (
-                        c_min > np.finfo(np.float32).min
-                        and c_max < np.finfo(np.float32).max
-                    ):
-                        df = df.with_columns(pl.col(col).cast(pl.Float32))
-                    else:
-                        df = df.with_columns(pl.col(col).cast(pl.Float64))
+        if c_min >= 0:
+            if c_max < np.iinfo(np.uint8).max:
+                return df.with_columns(pl.col(col).cast(pl.UInt8))
+            elif c_max < np.iinfo(np.uint16).max:
+                return df.with_columns(pl.col(col).cast(pl.UInt16))
+            elif c_max < np.iinfo(np.uint32).max:
+                return df.with_columns(pl.col(col).cast(pl.UInt32))
             else:
+                return df.with_columns(pl.col(col).cast(pl.UInt64))
+        else:
+            if c_min > np.iinfo(np.int8).min and c_max < np.iinfo(np.int8).max:
+                return df.with_columns(pl.col(col).cast(pl.Int8))
+            elif c_min > np.iinfo(np.int16).min and c_max < np.iinfo(np.int16).max:
+                return df.with_columns(pl.col(col).cast(pl.Int16))
+            elif c_min > np.iinfo(np.int32).min and c_max < np.iinfo(np.int32).max:
+                return df.with_columns(pl.col(col).cast(pl.Int32))
+            else:
+                return df.with_columns(pl.col(col).cast(pl.Int64))
+
+    def polars_optimize_float_dtype(self, df, col):
+        c_min, c_max = df[col].min(), df[col].max()
+        if (df[col].round() == df[col]).all():
+            return df.with_columns(pl.col(col).cast(pl.Int64))
+        elif c_min > np.finfo(np.float16).min and c_max < np.finfo(np.float16).max:
+            return df.with_columns(pl.col(col).cast(pl.Float32))
+        elif c_min > np.finfo(np.float32).min and c_max < np.finfo(np.float32).max:
+            return df.with_columns(pl.col(col).cast(pl.Float32))
+        else:
+            return df.with_columns(pl.col(col).cast(pl.Float64))
+
+    def polars_type_optimization(self, df):
+        float_columns = [
+            col for col, dtype in zip(df.columns, df.dtypes) if "Float" in str(dtype)
+        ]
+        for col in float_columns:
+            df = self.polars_optimize_float_dtype(df, col)
+
+        int_columns = [
+            col for col, dtype in zip(df.columns, df.dtypes) if "Int" in str(dtype)
+        ]
+        for col in int_columns:
+            if col == "case_id" or df[col].min() is None:
                 continue
+            df = self.polars_optimize_int_dtype(df, col)
+
+        str_columns = [
+            col for col, dtype in zip(df.columns, df.dtypes) if "String" in str(dtype)
+        ]
+        for col in str_columns:
+            df = df.with_columns(pl.col(col).cast(pl.Categorical))
         return df
 
     def type_optimization(self, df):
