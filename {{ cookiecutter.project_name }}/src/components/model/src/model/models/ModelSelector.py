@@ -131,15 +131,17 @@ class ModelSelector:
         return small, medium, full
 
     def fit(self, X_train, y_train, eval_set):
+        from xgboost import XGBClassifier
         from lightgbm import LGBMClassifier
+        from catboost import CatBoostClassifier
         # df_models_score = self.score_models(X_train, y_train, eval_set)
         # best_models = self.get_top_k_models(df_models_score, top_k=3)
 
         dataset_sizes = self.reduce_dataset(X_train, y_train)
-        for split, dataset_size in zip(["small", "medium", "full"], dataset_sizes):
-            best_models = [LGBMClassifier]
+        for split, dataset_size in zip(["small", "medium", "full"][2:], dataset_sizes[2:]):
+            best_models = [XGBClassifier, LGBMClassifier, CatBoostClassifier]
             top_models_score, studies = self.best_models_hparams_tuning(
-                X_train[dataset_size],
+                X_train[dataset_size, 1:],
                 y_train[dataset_size],
                 best_models,
                 eval_set,
@@ -147,7 +149,7 @@ class ModelSelector:
             )
             print(top_models_score)
         self.best_models = self.init_tuned_models(
-            X_train, y_train, best_models, studies, eval_set
+            X_train[:, 1:], y_train, best_models, studies, eval_set
         )
 
         self.model_ensemble = ModelEnsemble(

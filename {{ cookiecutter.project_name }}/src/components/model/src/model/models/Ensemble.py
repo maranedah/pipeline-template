@@ -1,4 +1,5 @@
 import logging
+from itertools import product
 
 import numpy as np
 import optuna
@@ -55,6 +56,14 @@ class ModelEnsemble:
             direction=self.direction,
             sampler=optuna.samplers.TPESampler(n_startup_trials=100),
         )
+
+        # Generate grid of combinations of models
+        values = [-1.0, 0.0, 1.0]
+        combinations = list(product(values,repeat=self.n_models))
+        for combination in combinations:
+            trial = {f"x{i}": coef for i, coef in enumerate(combination)}
+            study.enqueue_trial(trial, skip_if_exists=True)
+
         study.optimize(
             lambda trial: self.objective(trial, predictions, y_val),
             callbacks=[StopIfStudyDoesNotImproveCallback(threshold=1000)],

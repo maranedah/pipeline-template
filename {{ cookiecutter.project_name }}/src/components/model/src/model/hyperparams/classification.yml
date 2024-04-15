@@ -36,6 +36,7 @@ LGBMClassifier:
       feature_fraction_bynode: 0.9211547910665975
       max_delta_step: 9.626202028426249
       max_bin: 255
+    
   grid:
     boosting_type: ["gbdt", "rf"]
     objective: ["binary"]
@@ -60,7 +61,7 @@ LGBMClassifier:
 CatBoostClassifier:
   base_trials:
     default:
-      n_estimators: 100
+      n_estimators: 1000
       nan_mode: 'Min'
       sampling_frequency: 'PerTree'
       leaf_estimation_method: 'Newton'
@@ -83,6 +84,25 @@ CatBoostClassifier:
       bootstrap_type: 'MVS'
       max_leaves: 64
       auto_class_weights: "Balanced"
+    best_medium:
+      n_estimators: 1001
+      learning_rate: 0.05231818503720738
+      auto_class_weights: Balanced
+      grow_policy: SymmetricTree
+      random_score_type: Gumbel
+      penalties_coefficient: 1.0115995265753877
+      depth: 5
+      l2_leaf_reg: 92.46936258092009
+      subsample: 0.9754678706761962
+      bootstrap_type: Bernoulli
+      leaf_estimation_method: Newton
+      sampling_frequency: PerTree
+      boosting_type: Ordered
+      model_shrink_mode: Constant
+      feature_border_type: MinEntropy
+      random_strength: 1.830629636397676
+      rsm: 0.8018879912718615
+
   grid:
     n_estimators: [1000, 1000]
     learning_rate: [1.e-5, 3.e-1]
@@ -114,6 +134,18 @@ XGBClassifier:
       reg_alpha: 0
       reg_lambda: 1
       subsample: 1
+    best_medium:
+      n_estimators: 896
+      learning_rate: 0.05476444099818623
+      max_depth: 12
+      reg_alpha: 2.555770620584125
+      reg_lambda: 0.24816636471043074
+      subsample: 0.9708888129698929
+      colsample_bytree: 0.6314127701702026
+      colsample_bylevel: 0.6824257562527886
+      colsample_bynode: 0.5971293156501549
+      gamma: 0.1844253395294343
+      min_child_weight: 5.735595650309862
   grid:
     n_estimators: [500,2000]
     learning_rate: [1.e-5, 0.3]
