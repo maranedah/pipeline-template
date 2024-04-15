@@ -163,3 +163,4 @@ cython_debug/
 **/mlruns
 **/*.db
 **/*.csv
+**/*.pickle

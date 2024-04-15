@@ -48,7 +48,7 @@ class Aggregator:
 def get_paths(set_):
     dir_ = {
         "train": Path(__file__).parent / "parquet_files" / "train",
-        "test": Path(__file__).parent / "parquet_files" / "train",
+        "test": Path(__file__).parent / "parquet_files" / "test",
     }
     paths = [
         f"{set_}_base.parquet",
@@ -72,17 +72,17 @@ def get_paths(set_):
     return [dir_[set_] / path for path in paths]
 
 
-def read_parquet(filepath):
+def read_parquet(filepath, filter_cols=True):
     if "*" not in str(filepath):
-        df = process_data(pl.read_parquet(filepath))
+        df = process_data(pl.read_parquet(filepath), filter_cols)
     else:
         paths = glob(str(filepath))
-        df = process_data(pl.read_parquet(paths[0]))
+        df = process_data(pl.read_parquet(paths[0]), filter_cols)
         print(df.shape)
         for path in paths[1:]:
-            new_df = process_data(pl.read_parquet(path))
+            new_df = process_data(pl.read_parquet(path), filter_cols)
             print(new_df.shape)
-            df = pl.concat((df, new_df), how="diagonal")
+            df = pl.concat((df, new_df), how="diagonal_relaxed")
     return df
 
 
@@ -186,8 +186,15 @@ def aggregate_rows(df):
         return df
 
 
-def process_data(df):
-    return aggregate_rows(get_encodings(filter_cols(set_categorical(set_dates(df)))))
+def process_data(df, should_filter_cols=True):
+    if should_filter_cols:
+        return MemoryReduction().type_optimization(
+            aggregate_rows(get_encodings(filter_cols(set_categorical(set_dates(df)))))
+        )
+    else:
+        return MemoryReduction().type_optimization(
+            aggregate_rows(get_encodings(set_categorical(set_dates(df))))
+        )
 
 
 def date_to_number(df):
@@ -203,47 +210,111 @@ def date_to_number(df):
     return df
 
 
-def scale_data(df):
-    def my_scaler(s: pl.Series) -> pl.Series:
-        scaler = StandardScaler()
+def scale_data(df, scalers=None):
+    def my_scaler(s: pl.Series, scaler) -> pl.Series:
         return pl.Series(scaler.fit_transform(s.to_numpy().reshape(-1, 1)).flatten())
+
+    def apply_scaler(s: pl.Series, scaler) -> pl.Series:
+        return pl.Series(scaler.transform(s.to_numpy().reshape(-1, 1)).flatten())
 
     columns = [
         col for col in df.columns if col not in ["case_id", "WEEK_NUM", "target"]
     ]
-    for col in columns:
-        df = df.with_columns(pl.col(col).map_batches(my_scaler))
-    return df
+    if scalers:
+        for scaler_dict in scalers:
+            for col, scaler in scaler_dict.items():
+                if col in df.columns:
+                    df = df.with_columns(
+                        pl.col(col).map_batches(lambda x: apply_scaler(x, scaler))
+                    )
+    else:
+        scalers = []
+        for col in columns:
+            scaler = StandardScaler()
+            df = df.with_columns(
+                pl.col(col).map_batches(lambda x: my_scaler(x, scaler))
+            )
+            scalers.append({col: scaler})
+    return df, scalers
 
 
 def run_preprocess(project_id: str, palmer_penguins_uri: str) -> list[pd.DataFrame]:
-    for path in get_paths("train"):
-        print(path)
-        df = read_parquet(path)
-        df = MemoryReduction().type_optimization(df)
-        if "base" in str(path):
-            df.write_parquet(f"data/{''.join(path.stem.split('*'))}.parquet")
-            continue
-        columns = group_columns_by_correlation(df.to_pandas())
-        df[columns].write_parquet(f"data/{''.join(path.stem.split('*'))}.parquet")
+    # Run processing for each individual file
+    split = "train"
+    for split in ["train", "test"]:
+        for path in get_paths(split):
+            print(path)
+            output_file = f"data/{split}/{''.join(path.stem.split('*'))}.parquet"
+            if not os.path.exists(output_file):
+                df = read_parquet(path, filter_cols=True)
+                if "base" in str(path):
+                    df.write_parquet(output_file)
+                    continue
+                if split == "train":
+                    columns = group_columns_by_correlation(df.to_pandas())
+                    df = df[columns]
+                df.write_parquet(output_file)
 
-    df = pl.read_parquet("data/train_base.parquet")
-    for i, file in enumerate(
-        [f for f in os.listdir("data/") if "base" not in f or "consolidated" not in f]
-    ):
-        print(file)
-        new_df = pl.read_parquet(f"data/{file}")
-        df = df.join(new_df, how="left", on="case_id", suffix=f"_{i}")
+    # Consolidate multiple files into a single one
+    split = "train"
+    for split in ["train", "test"]:
+        if not os.path.exists(f"data/{split}/consolidated_dataset.parquet"):
+            df = pl.read_parquet(f"data/{split}/{split}_base.parquet")
+            for i, file in enumerate(
+                [
+                    f
+                    for f in os.listdir(f"data/{split}")
+                    if "base" not in f and "dataset" not in f
+                ]
+            ):
+                new_df = pl.read_parquet(f"data/{split}/{file}")
+                if len(new_df) == 0:
+                    continue
+                df.with_columns(pl.col("case_id").cast(pl.UInt64))
+                df = df.join(new_df, how="left", on="case_id", suffix=f"_{i}")
+            if split == "train":
+                df = filter_cols(df)
+            df = date_to_number(df)
+            df = MemoryReduction().type_optimization(df)
+            df = df.fill_null(0)
+            if split == "train":
+                df, scalers = scale_data(df)
+                import pickle
+
+                pickle.dump(scalers, open("scalers.pickle", "wb"))
+                df = MemoryReduction().type_optimization(df)
+                columns = group_columns_by_correlation(df.to_pandas())
+                df = MemoryReduction().type_optimization(df[columns].to_pandas())
+            elif split == "test":
+                train_df = read_parquet("data/train/consolidated_dataset.parquet")
+                import pickle
+
+                scalers = pickle.load(open("scalers.pickle", "rb"))
+                columns_to_select = [
+                    col for col in df.columns if col in train_df.columns
+                ]
+                df = df[columns_to_select]
+                columns_to_fill = [
+                    col
+                    for col in train_df.columns
+                    if col not in df.columns and col != "target" and col != "case_id"
+                ]
+                for col in columns_to_fill:
+                    df = df.with_columns(pl.lit(0.0).alias(col))
+
+                df = df.drop("case_id")
+                df, scalers = scale_data(df, scalers)
+                df = MemoryReduction().type_optimization(df.to_pandas())
+                import numpy as np
+
+                np.save("processed/X_submission.npy", df.values.astype(np.float16))
+
+            df.to_parquet(f"data/{split}/consolidated_dataset.parquet")
+
+    # Train, valid, test splits
+    split = "train"
+    df = pl.read_parquet("data/train/consolidated_dataset.parquet")
     df = filter_cols(df)
-    df = date_to_number(df)
-    df = MemoryReduction().type_optimization(df)
-    df = df.fill_null(0)
-    df = scale_data(df)
-    columns = group_columns_by_correlation(df.to_pandas())
-    df = MemoryReduction().type_optimization(df[columns].to_pandas())
-    df[columns].to_parquet("data/consolidated_dataset.parquet")
-
-    df = pl.read_parquet("data/consolidated_dataset.parquet")
     case_ids = df["case_id"].unique().shuffle(seed=1).to_frame()
     case_ids_train, case_ids_test = train_test_split(
         case_ids, train_size=0.6, random_state=1
@@ -252,19 +323,13 @@ def run_preprocess(project_id: str, palmer_penguins_uri: str) -> list[pd.DataFra
         case_ids_test, train_size=0.5, random_state=1
     )
 
-    cols_pred = []
-    for col in df.columns:
-        if col[-1].isupper() and col[:-1].islower():
-            cols_pred.append(col)
-
-    print(cols_pred)
-
     def from_polars_to_pandas(case_ids: pl.DataFrame) -> pl.DataFrame:
+        columns = [col for col in df.columns if col not in ["target", "case_id"]]
         return (
             df.filter(pl.col("case_id").is_in(case_ids))[
                 ["case_id", "WEEK_NUM", "target"]
             ].to_pandas(),
-            df.filter(pl.col("case_id").is_in(case_ids))[cols_pred].to_pandas(),
+            df.filter(pl.col("case_id").is_in(case_ids))[columns].to_pandas(),
             df.filter(pl.col("case_id").is_in(case_ids))["target"].to_pandas(),
         )
 

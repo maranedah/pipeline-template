@@ -4,11 +4,13 @@ import lightgbm as lgb
 import pandas as pd
 import xgboost as xgb
 from catboost import CatBoostClassifier
+from lightgbm import LGBMClassifier
 from model.models.ModelSelector import ModelSelector
 from model.models.Scoring import (
     gini_score,
 )
 from sklearn.metrics import roc_auc_score
+from xgboost import XGBClassifier
 
 logging.basicConfig(
     level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
@@ -26,8 +28,8 @@ class ClassificationModels(ModelSelector):
             # KNeighborsClassifier,
             # GaussianNB,
             # MLPClassifier,
-            # XGBClassifier,
-            # LGBMClassifier,
+            XGBClassifier,
+            LGBMClassifier,
             CatBoostClassifier,
         ]
         self.early_stopping_rounds = 10
@@ -91,6 +93,14 @@ class ClassificationModels(ModelSelector):
             return init_params[model_name]
         else:
             return {}
+
+
+# TODO: Train with smaller dataset (<20mb)
+# TODO: Pass argument to select model
+# TODO: Rename experiment in optuna based on dataset version + size
+# TODO: Add dataset to mlflow
+# TODO: Store champion model in mlflow
+# TODO: Usar stability score
 
 
 if __name__ == "__main__":

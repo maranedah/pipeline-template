@@ -4,8 +4,8 @@ import polars as pl
 from sklearn.decomposition import PCA
 
 
-class MemoryReduction:
-    def pandas_optimize_float_dtype(self, df, col):
+class PandasMemoryReduction:
+    def optimize_float_dtype(self, df, col):
         c_min, c_max = df[col].min(), df[col].max()
         if (df[col].round() == df[col]).all():
             return df[col].astype(np.int64)
@@ -16,7 +16,7 @@ class MemoryReduction:
         else:
             return df[col].astype(np.float64)
 
-    def pandas_optimize_int_dtype(self, df, col):
+    def optimize_int_dtype(self, df, col):
         c_min, c_max = df[col].min(), df[col].max()
         if c_min is not None and c_min >= 0:
             if c_max < np.iinfo(np.uint8).max:
@@ -37,21 +37,23 @@ class MemoryReduction:
             else:
                 return df[col].astype(np.int64)
 
-    def pandas_type_optimization(self, df):
+    def type_optimization(self, df):
         float_columns = df.select_dtypes(include=["float64", "float32", "float16"])
         for col in float_columns:
-            df[col] = self.pandas_optimize_float_dtype(df, col)
+            df[col] = self.optimize_float_dtype(df, col)
 
         int_columns = df.select_dtypes(include=["int64", "int32", "int16", "int8"])
         for col in int_columns:
-            df[col] = self.pandas_optimize_int_dtype(df, col)
+            df[col] = self.optimize_int_dtype(df, col)
 
         object_columns = df.select_dtypes(include=["object"])
         for col in object_columns:
             df[col].astype("category")
         return df
 
-    def polars_optimize_int_dtype(self, df, col):
+
+class PolarsMemoryReduction:
+    def optimize_int_dtype(self, df, col):
         c_min, c_max = df[col].min(), df[col].max()
 
         if c_min >= 0:
@@ -73,7 +75,7 @@ class MemoryReduction:
             else:
                 return df.with_columns(pl.col(col).cast(pl.Int64))
 
-    def polars_optimize_float_dtype(self, df, col):
+    def optimize_float_dtype(self, df, col):
         c_min, c_max = df[col].min(), df[col].max()
         if (df[col].round() == df[col]).all():
             return df.with_columns(pl.col(col).cast(pl.Int64))
@@ -84,12 +86,12 @@ class MemoryReduction:
         else:
             return df.with_columns(pl.col(col).cast(pl.Float64))
 
-    def polars_type_optimization(self, df):
+    def type_optimization(self, df):
         float_columns = [
             col for col, dtype in zip(df.columns, df.dtypes) if "Float" in str(dtype)
         ]
         for col in float_columns:
-            df = self.polars_optimize_float_dtype(df, col)
+            df = self.optimize_float_dtype(df, col)
 
         int_columns = [
             col for col, dtype in zip(df.columns, df.dtypes) if "Int" in str(dtype)
@@ -97,7 +99,7 @@ class MemoryReduction:
         for col in int_columns:
             if col == "case_id" or df[col].min() is None:
                 continue
-            df = self.polars_optimize_int_dtype(df, col)
+            df = self.optimize_int_dtype(df, col)
 
         str_columns = [
             col for col, dtype in zip(df.columns, df.dtypes) if "String" in str(dtype)
@@ -106,11 +108,13 @@ class MemoryReduction:
             df = df.with_columns(pl.col(col).cast(pl.Categorical))
         return df
 
+
+class MemoryReduction:
     def type_optimization(self, df):
         if type(df) == pd.DataFrame:
-            df = self.pandas_type_optimization(df)
+            df = PandasMemoryReduction().type_optimization(df)
         elif type(df) == pl.DataFrame:
-            df = self.polars_type_optimization(df)
+            df = PolarsMemoryReduction().type_optimization(df)
         else:
             raise NotImplementedError
         return df

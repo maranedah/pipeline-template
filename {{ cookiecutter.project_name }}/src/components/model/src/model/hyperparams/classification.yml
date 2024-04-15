@@ -19,16 +19,23 @@ LGBMClassifier:
       max_delta_step: 0.0
       max_bin: 255
     best_found:
-      boosting_type: "gbdt"
-      objective: "binary"
-      metric: "auc"
-      max_depth: 3
-      num_leaves: 31
-      learning_rate: 0.05
-      feature_fraction: 0.9
-      bagging_fraction: 0.8
-      bagging_freq: 5
+      boosting_type: 'gbdt'
+      objective: 'binary'
+      metric: 'auc'
+      learning_rate: 0.08767009868144243
+      num_leaves: 59
+      max_depth: 20
       n_estimators: 1000
+      min_data_in_leaf: 7
+      min_sum_hessian_in_leaf: 6.466597430997204
+      bagging_fraction: 0.547070560433649
+      reg_alpha: 13.224033076660836
+      reg_lambda: 76.05355706430626
+      subsample_freq: 0
+      feature_fraction: 0.8248602702109634
+      feature_fraction_bynode: 0.9211547910665975
+      max_delta_step: 9.626202028426249
+      max_bin: 255
   grid:
     boosting_type: ["gbdt", "rf"]
     objective: ["binary"]
@@ -77,7 +84,7 @@ CatBoostClassifier:
       max_leaves: 64
       auto_class_weights: "Balanced"
   grid:
-    n_estimators: [200, 200]
+    n_estimators: [1000, 1000]
     learning_rate: [1.e-5, 3.e-1]
     auto_class_weights: ["Balanced", "SqrtBalanced"]
     grow_policy: ['SymmetricTree']

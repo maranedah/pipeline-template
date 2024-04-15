@@ -45,7 +45,7 @@ class HyperparameterTuning:
     base_trials: dict
     hyperparams_grid: dict
 
-    def __init__(self, model, metric, model_init_params):
+    def __init__(self, model, metric, model_init_params, split):
         """
         Initialize the HyperparameterTuning object.
 
@@ -62,7 +62,7 @@ class HyperparameterTuning:
 
         self.study = optuna.create_study(
             direction="maximize",
-            study_name=f"{self.model_name}_new_data",  # self.model_name,
+            study_name=f"{self.model_name}_home_credit_v3_{split}",  # self.model_name,
             storage=optuna.storages.RDBStorage(
                 "postgresql://myuser:mypassword@192.168.1.200:5433/optuna"
             ),

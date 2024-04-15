@@ -60,7 +60,9 @@ class ModelSelector:
         )
         return top_k_models
 
-    def best_models_hparams_tuning(self, X_train, y_train, best_models, eval_set):
+    def best_models_hparams_tuning(
+        self, X_train, y_train, best_models, eval_set, split
+    ):
         mlflow.set_experiment("All Models")
         studies = []
         scores = []
@@ -69,6 +71,7 @@ class ModelSelector:
                 model,
                 metric=self.tuning_metric,
                 model_init_params=self.get_init_params(model),
+                split=split,
             ).run_tuning(
                 X_train,
                 y_train,
@@ -91,16 +94,58 @@ class ModelSelector:
         ]
         return best_models
 
-    def fit(self, X_train, y_train, eval_set):
-        from xgboost import XGBClassifier
+    def stratified_selection(self, labels, size):
+        unique_labels = np.unique(labels)
 
+        label_counts = {label: np.sum(labels == label) for label in unique_labels}
+
+        desired_sample_size = {
+            label: int(count * size) for label, count in label_counts.items()
+        }
+
+        stratified_indexes = []
+        for label in unique_labels:
+            indexes = np.where(labels == label)[0]
+            selected_indexes = np.random.choice(  # noqa: NPY002
+                indexes, size=desired_sample_size[label], replace=False
+            )
+            stratified_indexes.extend(selected_indexes)
+
+        stratified_indexes = np.array(stratified_indexes)
+        return stratified_indexes
+
+    def reduce_dataset(self, X, y):
+        dataset_in_mb = X.itemsize * X.size / 1024**2
+        reduction_coefficient = 1
+        while dataset_in_mb / reduction_coefficient > 20:
+            reduction_coefficient *= 2
+        small_len = len(X) // reduction_coefficient
+        full_len = len(X)
+        medium_len = int(np.exp((np.log(full_len) + np.log(small_len)) / 2))
+
+        small = self.stratified_selection(y, small_len / full_len)
+        medium = self.stratified_selection(y, medium_len / full_len)
+        full = self.stratified_selection(y, full_len / full_len)
+
+        # return indexes
+        return small, medium, full
+
+    def fit(self, X_train, y_train, eval_set):
+        from lightgbm import LGBMClassifier
         # df_models_score = self.score_models(X_train, y_train, eval_set)
         # best_models = self.get_top_k_models(df_models_score, top_k=3)
-        best_models = [XGBClassifier]
-        top_models_score, studies = self.best_models_hparams_tuning(
-            X_train, y_train, best_models, eval_set
-        )
-        print(top_models_score)
+
+        dataset_sizes = self.reduce_dataset(X_train, y_train)
+        for split, dataset_size in zip(["small", "medium", "full"], dataset_sizes):
+            best_models = [LGBMClassifier]
+            top_models_score, studies = self.best_models_hparams_tuning(
+                X_train[dataset_size],
+                y_train[dataset_size],
+                best_models,
+                eval_set,
+                split,
+            )
+            print(top_models_score)
         self.best_models = self.init_tuned_models(
             X_train, y_train, best_models, studies, eval_set
         )
