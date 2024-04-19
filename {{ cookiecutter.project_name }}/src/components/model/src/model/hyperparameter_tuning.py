@@ -58,7 +58,7 @@ class HyperparameterTuning:
         self.metric = metric
         self.model_init_params = model_init_params
         self.model_name = type(model()).__name__
-        mlflow.set_experiment(self.model_name)
+        mlflow.set_experiment(f"{self.model_name}_home_credit_v3_{split}")
 
         self.study = optuna.create_study(
             direction="maximize",

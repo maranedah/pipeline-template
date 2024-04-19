@@ -36,6 +36,44 @@ LGBMClassifier:
       feature_fraction_bynode: 0.9211547910665975
       max_delta_step: 9.626202028426249
       max_bin: 255
+    best_small:
+      boosting_type: gbdt
+      objective: binary
+      metric: auc
+      learning_rate: 0.07993103759008606
+      num_leaves: 23
+      max_depth: 7
+      n_estimators: 1000
+      min_data_in_leaf: 40
+      min_sum_hessian_in_leaf: 0.08386897157997009
+      bagging_fraction: 0.9604966139592431
+      reg_alpha: 4.937564918099376
+      reg_lambda: 83.7609886454897
+      subsample_freq: 1
+      feature_fraction: 0.9767610734651145
+      feature_fraction_bynode: 0.8791513292177522
+      max_delta_step: 8.962898847345182
+      max_bin: 255
+    best_medium:
+      boosting_type: gbdt
+      objective: binary
+      metric: auc
+      learning_rate: 0.0864683107775281
+      num_leaves: 49
+      max_depth: 16
+      n_estimators: 1000
+      min_data_in_leaf: 13
+      min_sum_hessian_in_leaf: 8.270829099728449
+      bagging_fraction: 0.9382635709045782
+      reg_alpha: 5.514933546682586
+      reg_lambda: 72.96741751779672
+      subsample_freq: 2
+      feature_fraction: 0.9548993839554839
+      feature_fraction_bynode: 0.8557401816277768
+      max_delta_step: 5.81658459045159
+      max_bin: 255
+
+
   grid:
     boosting_type: ["gbdt", "rf"]
     objective: ["binary"]

@@ -256,8 +256,7 @@ def run_preprocess(project_id: str, palmer_penguins_uri: str) -> list[pd.DataFra
                 df.write_parquet(output_file)
 
     # Consolidate multiple files into a single one
-    split = "train"
-    for split in ["train", "test"]:
+    for split in ["test"]:
         if not os.path.exists(f"data/{split}/consolidated_dataset.parquet"):
             df = pl.read_parquet(f"data/{split}/{split}_base.parquet")
             for i, file in enumerate(
