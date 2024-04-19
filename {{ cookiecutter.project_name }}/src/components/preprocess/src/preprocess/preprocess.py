@@ -1,6 +1,7 @@
 import os
 from glob import glob
 from pathlib import Path
+import numpy as np
 
 import pandas as pd
 import polars as pl
@@ -139,12 +140,27 @@ def get_encodings(df):
         encoding = df[categorical_columns].to_dummies()
         df = df.drop(categorical_columns)
         df = df.hstack(encoding)
+
+    date_columns = [
+        col
+        for col, dtype in zip(df.columns, df.dtypes)
+        if "Date" in str(dtype)
+    ]
+    for col in date_columns:
+        df = df.with_columns(
+            #pl.col("date").dt.weekday().alias("weekday"),
+            #pl.col("date").dt.day().alias("day_of_month"),
+            #pl.col("date").dt.ordinal_day().alias("day_of_year"),
+            pl.col(col).dt.epoch(time_unit="d").alias(f"{col}_unix"),
+        )
+        df = df.drop(col)
     return df
 
 
 # Function to group columns by correlation
 def group_columns_by_correlation(df, threshold=0.9):
     print("shape1", df.shape)
+    df = df.to_pandas()
     correlation_matrix = df.corr()
     groups = []
     remaining_cols = list(df.columns)
@@ -251,12 +267,11 @@ def run_preprocess(project_id: str, palmer_penguins_uri: str) -> list[pd.DataFra
                     df.write_parquet(output_file)
                     continue
                 if split == "train":
-                    columns = group_columns_by_correlation(df.to_pandas())
+                    columns = group_columns_by_correlation(df)
                     df = df[columns]
                 df.write_parquet(output_file)
 
     # Consolidate multiple files into a single one
-    split = "train"
     for split in ["train", "test"]:
         if not os.path.exists(f"data/{split}/consolidated_dataset.parquet"):
             df = pl.read_parquet(f"data/{split}/{split}_base.parquet")
@@ -283,7 +298,7 @@ def run_preprocess(project_id: str, palmer_penguins_uri: str) -> list[pd.DataFra
 
                 pickle.dump(scalers, open("scalers.pickle", "wb"))
                 df = MemoryReduction().type_optimization(df)
-                columns = group_columns_by_correlation(df.to_pandas())
+                columns = group_columns_by_correlation(df)
                 df = MemoryReduction().type_optimization(df[columns].to_pandas())
             elif split == "test":
                 train_df = read_parquet("data/train/consolidated_dataset.parquet")
