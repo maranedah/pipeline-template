@@ -1,10 +1,65 @@
+import logging
+
 import numpy as np
 import pandas as pd
 import polars as pl
-from sklearn.decomposition import PCA
+
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s - %(levelname)s - %(message)s",
+    datefmt="%Y-%m-%d %H:%M:%S",  # Format for displaying the date and time
+)
+
+
+class TypeHandling:
+    def __init__(self, ignore_columns=None, logging=False):
+        self.type_optimization = TypeOptimization(
+            ignore_columns=ignore_columns, logging=False
+        )
+        self.ignore_columns = ignore_columns
+        self.logging = logging
+
+    def __call__(self, df):
+        if self.logging:
+            logging.info(
+                f"Starting type handling for df of {int(self.get_dataframe_size(df))}MB"
+            )
+        df = self.set_dates(df)
+        df = self.set_categorical(df)
+        df = self.type_optimization(df)
+        if self.logging:
+            logging.info(
+                f"Ended type handling, new df of {int(self.get_dataframe_size(df))}MB"
+            )
+        return df
+
+    def get_dataframe_size(self, df):
+        if type(df) == pd.DataFrame:
+            size_in_mb = df.memory_usage().sum() / 1024**2
+        elif type(df) == pl.DataFrame:
+            size_in_mb = df.estimated_size() / 1024**2
+        return size_in_mb
+
+    def set_dates(self, df):
+        pattern = r"\d{4}[-/]\d{2}[-/]\d{2}|\d{2}[-/]\d{2}[-/]\d{4}"
+        for col in df.columns:
+            if df[col].dtype == pl.String and df[col].str.contains(pattern).all():
+                df = df.with_columns(pl.col(col).cast(pl.Date))
+        return df
+
+    def set_categorical(self, df):
+        str_columns = [
+            col for col, dtype in zip(df.columns, df.dtypes) if "String" in str(dtype)
+        ]
+        for col in str_columns:
+            df = df.with_columns(pl.col(col).cast(pl.Categorical))
+        return df
 
 
 class PandasMemoryReduction:
+    def __init__(self, ignore_columns=None):
+        self.ignore_columns = ignore_columns
+
     def optimize_float_dtype(self, df, col):
         c_min, c_max = df[col].min(), df[col].max()
         if (df[col].round() == df[col]).all():
@@ -38,21 +93,29 @@ class PandasMemoryReduction:
                 return df[col].astype(np.int64)
 
     def type_optimization(self, df):
-        float_columns = df.select_dtypes(include=["float64", "float32", "float16"])
+        columns = [col for col in df.columns if col not in self.ignore_columns]
+        float_columns = df[columns].select_dtypes(
+            include=["float64", "float32", "float16"]
+        )
         for col in float_columns:
             df[col] = self.optimize_float_dtype(df, col)
 
-        int_columns = df.select_dtypes(include=["int64", "int32", "int16", "int8"])
+        int_columns = df[columns].select_dtypes(
+            include=["int64", "int32", "int16", "int8"]
+        )
         for col in int_columns:
             df[col] = self.optimize_int_dtype(df, col)
 
-        object_columns = df.select_dtypes(include=["object"])
+        object_columns = df[columns].select_dtypes(include=["object"])
         for col in object_columns:
             df[col].astype("category")
         return df
 
 
 class PolarsMemoryReduction:
+    def __init__(self, ignore_columns=None):
+        self.ignore_columns = ignore_columns
+
     def optimize_int_dtype(self, df, col):
         c_min, c_max = df[col].min(), df[col].max()
 
@@ -87,14 +150,19 @@ class PolarsMemoryReduction:
             return df.with_columns(pl.col(col).cast(pl.Float64))
 
     def type_optimization(self, df):
+        columns = [col for col in df.columns if col not in self.ignore_columns]
         float_columns = [
-            col for col, dtype in zip(df.columns, df.dtypes) if "Float" in str(dtype)
+            col
+            for col, dtype in zip(columns, df[columns].dtypes)
+            if "Float" in str(dtype)
         ]
         for col in float_columns:
             df = self.optimize_float_dtype(df, col)
 
         int_columns = [
-            col for col, dtype in zip(df.columns, df.dtypes) if "Int" in str(dtype)
+            col
+            for col, dtype in zip(columns, df[columns].dtypes)
+            if "Int" in str(dtype)
         ]
         for col in int_columns:
             if col == "case_id" or df[col].min() is None:
@@ -102,83 +170,44 @@ class PolarsMemoryReduction:
             df = self.optimize_int_dtype(df, col)
 
         str_columns = [
-            col for col, dtype in zip(df.columns, df.dtypes) if "String" in str(dtype)
+            col
+            for col, dtype in zip(columns, df[columns].dtypes)
+            if "String" in str(dtype)
         ]
         for col in str_columns:
             df = df.with_columns(pl.col(col).cast(pl.Categorical))
         return df
 
 
-class MemoryReduction:
-    def type_optimization(self, df):
+class TypeOptimization:
+    def __init__(self, ignore_columns=None, logging=False):
+        self.ignore_columns = ignore_columns
+        self.logging = logging
+
+    def __call__(self, df):
+        if logging:
+            logging.info(
+                f"Optimizing dataframe with size {int(self.get_dataframe_size(df))}MB"
+            )
         if type(df) == pd.DataFrame:
-            df = PandasMemoryReduction().type_optimization(df)
+            df = PandasMemoryReduction(
+                ignore_columns=self.ignore_columns
+            ).type_optimization(df)
         elif type(df) == pl.DataFrame:
-            df = PolarsMemoryReduction().type_optimization(df)
+            df = PolarsMemoryReduction(
+                ignore_columns=self.ignore_columns
+            ).type_optimization(df)
         else:
             raise NotImplementedError
+        if logging:
+            logging.info(
+                f"Optimization ended with size {int(self.get_dataframe_size(df))}MB"
+            )
         return df
 
-    def pandas_filter_cols(self, df):
-        raise NotImplementedError
-
-    def filter_cols(self, df):
+    def get_dataframe_size(self, df):
         if type(df) == pd.DataFrame:
-            df = self.pandas_filter_cols(df)
+            size_in_mb = df.memory_usage().sum() / 1024**2
         elif type(df) == pl.DataFrame:
-            df = self.polars_filter_cols(df)
-        else:
-            raise NotImplementedError
-        return df
-
-    def dimensionality_reduction(self, df):
-        bool_columns = df.select_dtypes(include=["bool"]).columns.tolist()
-        n = len(bool_columns)
-        sqrt_n = int(np.sqrt(n).round())
-
-        pca = PCA(n_components=sqrt_n, random_state=42)
-        pca_data = pca.fit_transform(df[bool_columns])
-        pca_columns = pd.DataFrame(
-            data=pca_data, columns=[f"x_{i}" for i in range(sqrt_n)]
-        )
-
-        df.drop(columns=bool_columns, inplace=True)
-        df = pd.concat([df, pca_columns], axis=1)
-
-        return df
-
-    def polars_filter_cols(self, df):
-        numeric_columns = [
-            pl.Int64,
-            pl.Int32,
-            pl.Int16,
-            pl.Int8,
-            pl.Float64,
-            pl.Float32,
-        ]
-
-        # Filter out the columns with numeric data types
-        ignore_columns = ["target", "case_id", "WEEK_NUM"]
-        numeric_columns = [
-            column
-            for column, dtype in zip(df.columns, df.dtypes)
-            if dtype in numeric_columns
-        ]
-
-        for col in df.columns:
-            if col not in ignore_columns:
-                isnull = df[col].is_null().mean()
-                if isnull > 0.8:
-                    df = df.drop(col)
-
-        for col in df.columns:
-            freq = df[col].n_unique()
-            if freq == 1:
-                df = df.drop(col)
-
-        for col in df.columns:
-            if (col not in ignore_columns) & (df[col].dtype == pl.String):
-                freq = df[col].n_unique()
-                if freq > 200:
-                    df = df.drop(col)
-        return df
+            size_in_mb = df.estimated_size() / 1024**2
+        return size_in_mb

@@ -59,12 +59,12 @@ class ModelEnsemble:
 
         # Generate grid of combinations of models
         values = [-1.0, 0.0, 1.0]
-        combinations = list(product(values, repeat=3))
+
+        combinations = list(product(values, repeat=self.n_models))
         for combination in combinations:
             trial = {f"x{i}": coef for i, coef in enumerate(combination)}
             study.enqueue_trial(trial, skip_if_exists=True)
 
-        # Start optimization
         study.optimize(
             lambda trial: self.objective(trial, predictions, y_val),
             callbacks=[StopIfStudyDoesNotImproveCallback(threshold=1000)],

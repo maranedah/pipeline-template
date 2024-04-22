@@ -37,7 +37,7 @@ class ClassificationModels(ModelSelector):
         self.tuning_metric = gini_score
         self.ensemble_scoring_function = gini_score
         self.cv_splits = 5
-        self.suggestion_trials = None
+        self.suggestion_trials = 0
         self.timeout_in_hours = 100
         self.eval_metric = "auc"
         self.random_state = 42
@@ -109,7 +109,7 @@ if __name__ == "__main__":
     logging.info("Started program")
     X_train = np.load("processed/X_train.npy")
     y_train = np.load("processed/y_train.npy")
-    X_valid = np.load("processed/X_valid.npy")
+    X_valid = np.load("processed/X_valid.npy")[:, 1:]
     y_valid = np.load("processed/y_valid.npy")
 
     model = ClassificationModels()
@@ -118,10 +118,14 @@ if __name__ == "__main__":
     base_train = pd.read_parquet("processed/base_train.parquet")
     base_valid = pd.read_parquet("processed/base_valid.parquet")
     base_test = pd.read_parquet("processed/base_test.parquet")
-    X_test = np.load("processed/X_test.npy")
+    X_test = np.load("processed/X_test.npy")[:, 1:]
     y_test = np.load("processed/y_test.npy")
 
-    for base, X in [(base_train, X_train), (base_valid, X_valid), (base_test, X_test)]:
+    for base, X in [
+        (base_train, X_train[:, 1:]),
+        (base_valid, X_valid),
+        (base_test, X_test),
+    ]:
         y_pred = model.predict_ensemble(X)
         base["score"] = y_pred
 

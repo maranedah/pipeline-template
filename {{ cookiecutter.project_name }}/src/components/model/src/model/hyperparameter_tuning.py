@@ -237,6 +237,9 @@ class HyperparameterTuning:
         for _, trial in self.base_trials.items():
             self.study.enqueue_trial(trial, skip_if_exists=True)
 
+        if suggestion_trials == 0:
+            return self.study
+
         self.study.optimize(
             lambda trial: self.objective(trial, X_train, y_train, kfolds, fit_params),
             n_trials=suggestion_trials,
