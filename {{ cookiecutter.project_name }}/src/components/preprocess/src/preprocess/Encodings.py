@@ -23,9 +23,11 @@ class Encodings:
     def get_categorical_encodings(self, df):
         categorical_columns = self.get_columns_where(df, col_type=pl.Categorical)
         if categorical_columns:
-            encoding = df[categorical_columns].to_dummies()
-            df = df.drop(categorical_columns)
-            df = df.hstack(encoding)
+            for categorical_column in categorical_columns:
+                print(categorical_column)
+                encoding = df[categorical_column].to_dummies()
+                df = df.drop(categorical_column)
+                df = df.hstack(encoding)
         return df
 
     def get_dates_encodings(self, df):

@@ -116,9 +116,10 @@ class FilterCorrelatedColumns:
 
 
 class FilterColumns:
-    def __init__(self, logging: bool, ignore_columns=[]):
+    def __init__(self, logging: bool, ignore_columns=[], threshold=0.99):
         self.logging = logging
         self.ignore_columns = ignore_columns
+        self.threshold = threshold
 
     def __call__(self, df):
         if self.logging:
@@ -127,7 +128,7 @@ class FilterColumns:
         columns = [col for col in df.columns if col not in self.ignore_columns]
         for col in columns:
             should_be_filtered = (
-                self.too_many_nulls(df, col)
+                self.too_many_nulls(df, col, threshold=self.threshold)
                 or self.only_one_value(df, col)
                 or self.too_many_categories(df, col)
             )
@@ -139,11 +140,11 @@ class FilterColumns:
             logging.info(f"Ended filtering with DataFrame of shape: {df.shape}")
         return df
 
-    def too_many_nulls(self, df, col, threshold=0.8):
+    def too_many_nulls(self, df, col, threshold=0.99):
         return df[col].dtype == pl.Null or df[col].is_null().mean() > threshold
 
     def only_one_value(self, df, col):
-        return df[col].n_unique() == 1
+        return df[col].drop_nulls().n_unique() == 1
 
     def too_many_categories(self, df, col, threshold=10):
         return df[col].dtype == pl.Categorical and df[col].n_unique() > threshold
