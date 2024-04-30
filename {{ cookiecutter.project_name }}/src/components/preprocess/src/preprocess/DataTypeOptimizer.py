@@ -50,7 +50,7 @@ class DataTypeOptimizer:
                 )
         return df
 
-    def type_optimization(self, df):
+    def __call__(self, df):
         df_ignore = df[self.ignore_columns]
         df = df[list(set(df.columns) - set(self.ignore_columns))]
         df = self.set_dates(df)
@@ -124,7 +124,7 @@ class PandasDataTypeOptimizer(DataTypeOptimizer):
 
 
 class PolarsDataTypeOptimizer(DataTypeOptimizer):
-    def __init__(self, ignore_columns=None):
+    def __init__(self, ignore_columns=[], logging=False):
         super().__init__(ignore_columns, logging)
         self.np_float_types = [np.float32, np.float64]  # Polars doesn't accept float16
         self.df_float_types = [pl.Float32, pl.Float64]

@@ -52,7 +52,7 @@ class TestPandasDataTypeOptimizer(unittest.TestCase):
         self.assertEqual(optimized_df["B"].dtype, pl.Float32)
 
     def test_type_optimization(self):
-        optimized_df = self.optimizer.type_optimization(self.df)
+        optimized_df = self.optimizer(self.df)
         self.assertEqual(optimized_df["A"].dtype, pl.UInt8)
         self.assertEqual(optimized_df["B"].dtype, pl.Float32)
         self.assertEqual(optimized_df["C"].dtype, pl.Date)
