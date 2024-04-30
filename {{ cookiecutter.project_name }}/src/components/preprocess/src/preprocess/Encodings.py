@@ -1,6 +1,6 @@
 import polars as pl
 
-from .DataTypeOptimizer import PolarsDataTypeOptimizer
+from DataTypeOptimizer import PolarsDataTypeOptimizer, type_optimizer_decorator
 
 
 class Encodings:
@@ -12,11 +12,10 @@ class Encodings:
         self.day_of_year = day_of_year
         self.date_as_unix = date_as_unix
 
+    @type_optimizer_decorator
     def __call__(self, df):
         df = self.get_categorical_encodings(df)
         df = self.get_dates_encodings(df)
-        optimizer = PolarsDataTypeOptimizer()
-        df = optimizer.type_optimization(df)
         return df
 
     def get_categorical_encodings(self, df):

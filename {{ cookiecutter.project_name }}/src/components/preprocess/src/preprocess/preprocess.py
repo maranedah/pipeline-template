@@ -7,13 +7,9 @@ import numpy as np
 import pandas as pd
 import polars as pl
 from constants import (
-    aggregate_rows,
-    filter_columns,
-    get_encodings,
     ignore_columns,
     scaler,
-    type_handling,
-    type_optimization,
+    step_1_processing
 )
 from sklearn.model_selection import train_test_split
 
@@ -64,7 +60,7 @@ def read_parquet(filepath):
             df = pl.concat((df, new_df), how="diagonal_relaxed")
     logging.info(
         f"""
-        Finished reading {filepath}
+        Finished reading {filepath.stem}
         with df of size {int(df.estimated_size() / 1024 ** 2)}MB
         """
     )
@@ -72,9 +68,7 @@ def read_parquet(filepath):
 
 
 def process_data(df):
-    return type_handling(
-        aggregate_rows(type_handling(get_encodings(filter_columns(type_handling(df)))))
-    )
+    return step_1_processing(df)
 
 
 def process_submission_data(df):
@@ -97,8 +91,6 @@ def run_preprocess(project_id: str, palmer_penguins_uri: str) -> list[pd.DataFra
             output_file = f"data/{split}/{''.join(path.stem.split('*'))}.parquet"
             if not os.path.exists(output_file):
                 df = read_parquet(path)
-                if split == "train":
-                    df = type_optimization(df)
                 df.write_parquet(output_file)
 
     # Consolidate multiple files into a single one
@@ -125,12 +117,12 @@ def run_preprocess(project_id: str, palmer_penguins_uri: str) -> list[pd.DataFra
                 df = df[columns]
                 # df = df.fill_null(0)
                 df = scaler.fit_transform(df)
-                df = type_optimization(df.to_pandas())
+                #df = type_optimization(df.to_pandas())
                 print("df shape", df.shape)
             elif split == "test":
                 df = process_submission_data(df)
                 df = scaler.transform(df)
-                df = type_optimization(df.to_pandas())
+                #df = type_optimization(df.to_pandas())
                 np.save("processed/X_submission_case_ids.npy", df["case_id"].values)
                 columns = [col for col in df.columns if col not in ignore_columns]
                 df = df[columns]

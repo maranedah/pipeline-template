@@ -24,7 +24,7 @@ class DataTypeOptimizer:
 
         for df_dtype, dtype in zip(df_types, np_types):
             np_info = np.iinfo if np.issubdtype(dtype, np.integer) else np.finfo
-            if c_min > np_info(dtype).min and c_max < np_info(dtype).max:
+            if c_min >= np_info(dtype).min and c_max <= np_info(dtype).max:
                 return self.cast_column(df, col, df_dtype)
 
     def optimize_numerical_dtype(self, df, col):
@@ -32,8 +32,12 @@ class DataTypeOptimizer:
             df = self.cast_column(df, col, self.df_float_types[0])
         else:
             c_min = df[col].min()
-            col_is_int = (df[col].round() == df[col]).all()
-            col_is_positive = c_min > 0
+            col_is_int = (
+                df[col].dtype in self.df_uint_types
+                or df[col].dtype in self.df_int_types
+                or (df[col].round() == df[col]).all()
+            )
+            col_is_positive = c_min >= 0
 
             if col_is_int:
                 if col_is_positive:
@@ -150,3 +154,17 @@ class PolarsDataTypeOptimizer(DataTypeOptimizer):
 
     def get_df_size(self, df):
         return df.estimated_size() / 1024**2
+
+def type_optimizer_decorator(func):
+    def wrapper(*args, **kwargs):
+        df = args[1]
+        init_columns = df.columns
+        df_result = func(*args, **kwargs)
+        end_columns = df_result.columns
+        new_columns = list(set(end_columns) - set(init_columns))
+        old_columns = [col for col in df_result.columns if col not in new_columns]
+        optimizer = PolarsDataTypeOptimizer()
+        new_df = optimizer(df_result[new_columns])
+        result = optimizer.concat_horizontally((df_result[old_columns], new_df))
+        return result
+    return wrapper
