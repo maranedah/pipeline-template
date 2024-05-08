@@ -6,6 +6,14 @@ class Scaler:
     def __init__(self, ignore_columns=[]):
         self.ignore_columns = ignore_columns
         self.scalers = None
+        self.fitted = False
+
+    def __call__(self, df):
+        if self.fitted:
+            df = self.transform(df)
+        else:
+            df = self.fit_transform(df)
+        return df
 
     def fit_transform(self, df):
         def scaler_fit_transform(s: pl.Series, scaler) -> pl.Series:
@@ -21,6 +29,7 @@ class Scaler:
                 pl.col(col).map_batches(lambda x: scaler_fit_transform(x, scaler))
             )
             self.scalers.append({col: scaler})
+        self.fitted = True
         return df
 
     def transform(self, df):

@@ -55,8 +55,9 @@ class DataTypeOptimizer:
         return df
 
     def __call__(self, df):
-        df_ignore = df[self.ignore_columns]
-        df = df[list(set(df.columns) - set(self.ignore_columns))]
+        ignore_columns = [col for col in df.columns if col in self.ignore_columns]
+        df_ignore = df[ignore_columns]
+        df = df[list(set(df.columns) - set(ignore_columns))]
         df = self.set_dates(df)
         df = self.set_categorical(df)
         df = self.set_numerical(df)
@@ -144,7 +145,7 @@ class PolarsDataTypeOptimizer(DataTypeOptimizer):
         self.date_type = pl.Date
 
     def is_null(self, df, col):
-        return df[col].dtype == pl.Null
+        return df[col].min() is None or df[col].dtype == pl.Null
 
     def concat_horizontally(self, items):
         return pl.concat(items, how="horizontal")
@@ -154,6 +155,7 @@ class PolarsDataTypeOptimizer(DataTypeOptimizer):
 
     def get_df_size(self, df):
         return df.estimated_size() / 1024**2
+
 
 def type_optimizer_decorator(func):
     def wrapper(*args, **kwargs):
@@ -167,4 +169,5 @@ def type_optimizer_decorator(func):
         new_df = optimizer(df_result[new_columns])
         result = optimizer.concat_horizontally((df_result[old_columns], new_df))
         return result
+
     return wrapper

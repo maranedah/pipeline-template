@@ -4,5 +4,6 @@ class Compose:
 
     def __call__(self, df):
         for t in self.transforms:
-            df = t(df)
+            if len(df):
+                df = t(df)
         return df

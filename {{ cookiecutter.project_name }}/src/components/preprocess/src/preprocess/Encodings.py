@@ -1,6 +1,6 @@
 import polars as pl
 
-from DataTypeOptimizer import PolarsDataTypeOptimizer, type_optimizer_decorator
+from .DataTypeOptimizer import type_optimizer_decorator
 
 
 class Encodings:

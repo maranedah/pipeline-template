@@ -1,9 +1,14 @@
-from Aggregator import Aggregator
-from Encodings import Encodings
-from Scaler import Scaler
-from DataTypeOptimizer import PolarsDataTypeOptimizer
-from Compose import Compose
-from FeatureReduction import FilterColumnsTooCorrelated, FilterColumnsWithManyNulls, FilterColumnsWithOnlyOneValue, FilterColumnsWithTooManyCategories
+from .Aggregator import Aggregator
+from .Compose import Compose
+from .DataTypeOptimizer import PolarsDataTypeOptimizer
+from .Encodings import Encodings
+from .FeatureReduction import (
+    FilterColumnsTooCorrelated,
+    FilterColumnsWithManyNulls,
+    FilterColumnsWithOnlyOneValue,
+    FilterColumnsWithTooManyCategories,
+)
+from .Scaler import Scaler
 
 ignore_columns = [
     "case_id",
@@ -27,18 +32,28 @@ scaler = Scaler(ignore_columns=ignore_columns)
 step_1_processing = Compose(
     transforms=[
         PolarsDataTypeOptimizer(),
-        FilterColumnsWithOnlyOneValue(),
-        FilterColumnsWithTooManyCategories(threshold=11),
-        Encodings(weekday=False, day_of_month=False, day_of_year=False, date_as_unix=True),
-        Aggregator(key_column="case_id", ignore_columns=ignore_columns)
-
+        # FilterColumnsWithOnlyOneValue(ignore_columns=ignore_columns),
+        FilterColumnsWithTooManyCategories(threshold=11, ignore_columns=ignore_columns),
+        Encodings(
+            weekday=False, day_of_month=False, day_of_year=False, date_as_unix=True
+        ),
+        Aggregator(
+            key_column="case_id",
+            ignore_columns=ignore_columns,
+            mean=True,
+            std=True,
+            min=False,
+            max=False,
+        ),
     ]
 )
 
 step_2_processing = Compose(
     transforms=[
-        FilterColumnsWithManyNulls(threshold=0.95),
-        FilterColumnsTooCorrelated(threshold=0.9)
-
+        FilterColumnsWithOnlyOneValue(ignore_columns=ignore_columns),
+        FilterColumnsWithManyNulls(threshold=0.8, ignore_columns=ignore_columns),
+        FilterColumnsTooCorrelated(threshold=0.9, ignore_columns=ignore_columns),
     ]
 )
+
+step_3_processing = Compose(transforms=[Scaler(ignore_columns=ignore_columns)])

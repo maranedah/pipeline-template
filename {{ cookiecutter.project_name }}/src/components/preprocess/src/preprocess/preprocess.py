@@ -6,12 +6,12 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 import polars as pl
-from constants import (
-    ignore_columns,
-    scaler,
-    step_1_processing
-)
 from sklearn.model_selection import train_test_split
+
+from .constants import (
+    ignore_columns,
+    step_1_processing,
+)
 
 logging.basicConfig(
     level=logging.INFO,
@@ -48,16 +48,18 @@ def get_paths(set_):
 
 
 def read_parquet(filepath):
-    logging.info(f"Reading data at path {filepath}")
+    logging.info(f"Reading data at path {filepath.stem}")
     if "*" not in str(filepath):
         df = process_data(pl.read_parquet(filepath))
     else:
         paths = glob(str(filepath))
         df = process_data(pl.read_parquet(paths[0]))
         for path in paths[1:]:
-            logging.info(f"Reading {path}...")
+            logging.info(f"Reading {Path(path).stem}...")
             new_df = process_data(pl.read_parquet(path))
-            df = pl.concat((df, new_df), how="diagonal_relaxed")
+            if len(new_df):
+                df = pl.concat((df, new_df), how="diagonal_relaxed")
+    # df  = step_2_processing(df)
     logging.info(
         f"""
         Finished reading {filepath.stem}
@@ -71,8 +73,7 @@ def process_data(df):
     return step_1_processing(df)
 
 
-def process_submission_data(df):
-    train_columns = pd.read_csv("columns.txt", header=None)[0].to_list()
+def process_submission_data(df, train_columns):
     train_columns = set(train_columns)
     submission_columns = set(df.columns)
     shared_columns = train_columns & submission_columns
@@ -85,53 +86,68 @@ def process_submission_data(df):
     return df
 
 
+def merge_files(output_paths):
+    base_file = next(f for f in output_paths if "base" in str(f))
+    df = pl.read_parquet(base_file)
+    files = [f for f in output_paths if f != base_file]
+    for i, file in enumerate(files):
+        new_df = pl.read_parquet(file)
+        if len(new_df):
+            df = df.join(new_df, how="left", on="case_id", suffix=f"_{i}")
+    # df = step_2_processing(df)
+    return df
+
+
+def separate_features(df, id_col, group_col, target_col):
+    columns = [col for col in df.columns if col not in ignore_columns]
+    id_col = df[id_col]
+    group_col = df[group_col]
+    features = df[columns]
+    target_col = df[target_col]
+    return id_col, group_col, features, target_col
+
+
+def scale(df):
+    # mean_values = df.mean()
+    # std_values = df.std()
+    df = df.select((pl.all() - pl.all().mean()) / pl.all().std())
+    return df
+
+
+def process_files(input_paths, output_paths):
+    for input_path, output_path in zip(input_paths, output_paths):
+        print(input_path)
+        if not os.path.exists(output_path):
+            df = read_parquet(input_path)
+            df.write_csv(output_path)
+
+
+def get_output_paths(split, input_files):
+    output_folder = Path(__file__).parent / "data" / split
+    output_paths = [output_folder / f"{f.stem.split('*')[0]}.csv" for f in input_files]
+    return output_paths
+
+
 def run_preprocess(project_id: str, palmer_penguins_uri: str) -> list[pd.DataFrame]:
-    for split in ["train", "test"]:
-        for path in get_paths(split):
-            output_file = f"data/{split}/{''.join(path.stem.split('*'))}.parquet"
-            if not os.path.exists(output_file):
-                df = read_parquet(path)
-                df.write_parquet(output_file)
+    # Process data to files
+    train_paths = get_paths("train")
+    output_train_paths = get_output_paths("train", train_paths)
+    process_files(train_paths, output_train_paths)
+    df_train = merge_files(output_train_paths)
+
+    # test_files = get_paths("test")
 
     # Consolidate multiple files into a single one
+    df_train = merge_files("train")
+    df_test = merge_files("test")
 
-    for split in ["train", "test"]:
-        if not os.path.exists(f"output/{split}/consolidated_dataset.parquet"):
-            df = pl.read_parquet(f"data/{split}/{split}_base.parquet")
-            for i, file in enumerate(
-                [
-                    f
-                    for f in os.listdir(f"data/{split}")
-                    if "base" not in f and "dataset" not in f
-                ]
-            ):
-                new_df = pl.read_parquet(f"data/{split}/{file}")
-                if len(new_df) == 0:
-                    continue
-                df.with_columns(pl.col("case_id").cast(pl.UInt64))
-                df = df.join(new_df, how="left", on="case_id", suffix=f"_{i}")
+    df_test = process_submission_data(df_test, train_columns=df_train.columns)
 
-            if split == "train":
-                df = df.drop(["MONTH"])
-                columns = pd.read_csv("columns.txt", header=None)[0].to_list()
-                df = df[columns]
-                # df = df.fill_null(0)
-                df = scaler.fit_transform(df)
-                #df = type_optimization(df.to_pandas())
-                print("df shape", df.shape)
-            elif split == "test":
-                df = process_submission_data(df)
-                df = scaler.transform(df)
-                #df = type_optimization(df.to_pandas())
-                np.save("processed/X_submission_case_ids.npy", df["case_id"].values)
-                columns = [col for col in df.columns if col not in ignore_columns]
-                df = df[columns]
-                np.save("processed/X_submission.npy", df.values)
-                print(df.shape)
-            df.to_parquet(f"output/{split}/consolidated_dataset.parquet")
+    case_ids, week_nums, np_test, test_target = separate_features(
+        df_test, "case_id", "WEEK_NUM", "target"
+    )
 
     # Train, valid, test splits
-    split = "train"
     df = pl.read_parquet("output/train/consolidated_dataset.parquet")
     case_ids = df["case_id"].unique().shuffle(seed=1).to_frame()
     case_ids_train, case_ids_test = train_test_split(
